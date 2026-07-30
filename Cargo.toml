@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/lutra-movegen",
+    "crates/lutra-engine",
+    "crates/lutra-uci",
+    "crates/lutra-bin",
+]
+
+[workspace.package]
+edition = "2024"

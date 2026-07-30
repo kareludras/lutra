@@ -1,0 +1,11 @@
+[package]
+name = "lutra-bin"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+lutra-uci = { path = "../lutra-uci" }
+
+[[bin]]
+name = "lutra"
+path = "src/main.rs"

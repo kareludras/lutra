@@ -1,6 +1,7 @@
 pub mod attacks;
 pub mod bitboard;
 pub mod piece;
+pub mod sliding;
 pub mod square;
 
 pub use bitboard::Bitboard;

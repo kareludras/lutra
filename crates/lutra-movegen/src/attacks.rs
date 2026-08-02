@@ -1,5 +1,5 @@
 use crate::bitboard::Bitboard;
-use crate::square::Square;
+use crate::square::{Color, Square};
 
 const FILE_A: u64 = 0x0101_0101_0101_0101;
 const FILE_B: u64 = FILE_A << 1;
@@ -41,6 +41,18 @@ pub fn king_attacks(sq: Square) -> Bitboard {
     attacks |= (b << 7) & NOT_FILE_H;
     attacks |= (b >> 7) & NOT_FILE_A;
     attacks |= (b >> 9) & NOT_FILE_H;
+
+    Bitboard::new(attacks)
+}
+
+/// Squares a pawn of `color` on `sq` attacks (diagonal captures only, no pushes).
+pub fn pawn_attacks(color: Color, sq: Square) -> Bitboard {
+    let b = 1u64 << sq.index();
+
+    let attacks = match color {
+        Color::White => ((b << 9) & NOT_FILE_A) | ((b << 7) & NOT_FILE_H),
+        Color::Black => ((b >> 7) & NOT_FILE_A) | ((b >> 9) & NOT_FILE_H),
+    };
 
     Bitboard::new(attacks)
 }

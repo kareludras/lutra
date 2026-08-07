@@ -40,4 +40,17 @@ impl Piece {
             Piece::King => 'K',
         }
     }
+
+    /// Parses a piece letter, case-insensitively (FEN uses case for color, not piece type).
+    pub fn from_char(c: char) -> Option<Piece> {
+        match c.to_ascii_uppercase() {
+            'P' => Some(Piece::Pawn),
+            'N' => Some(Piece::Knight),
+            'B' => Some(Piece::Bishop),
+            'R' => Some(Piece::Rook),
+            'Q' => Some(Piece::Queen),
+            'K' => Some(Piece::King),
+            _ => None,
+        }
+    }
 }

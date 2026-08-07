@@ -5,7 +5,7 @@ use crate::square::{Color, Square};
 
 /// Full board state: piece placement, side to move, castling rights,
 /// en passant target, and the move counters needed for FEN/UCI later.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Board {
     pieces: [[Bitboard; 6]; 2], // indexed [color.index()][piece.index()]
     side_to_move: Color,
@@ -98,5 +98,30 @@ impl Board {
     #[inline]
     pub fn fullmove_number(&self) -> u16 {
         self.fullmove_number
+    }
+
+    #[inline]
+    pub fn set_side_to_move(&mut self, color: Color) {
+        self.side_to_move = color;
+    }
+
+    #[inline]
+    pub fn set_castling_rights(&mut self, rights: CastlingRights) {
+        self.castling_rights = rights;
+    }
+
+    #[inline]
+    pub fn set_en_passant(&mut self, sq: Option<Square>) {
+        self.en_passant = sq;
+    }
+
+    #[inline]
+    pub fn set_halfmove_clock(&mut self, v: u16) {
+        self.halfmove_clock = v;
+    }
+
+    #[inline]
+    pub fn set_fullmove_number(&mut self, v: u16) {
+        self.fullmove_number = v;
     }
 }

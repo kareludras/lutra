@@ -54,10 +54,26 @@ fn starting_position_occupancy_matches_ranks_one_two_seven_eight() {
 #[test]
 fn starting_position_places_kings_and_queens_correctly() {
     let board = Board::starting_position();
-    assert!(board.pieces(Color::White, Piece::King).contains(Square::from_algebraic("e1").unwrap()));
-    assert!(board.pieces(Color::White, Piece::Queen).contains(Square::from_algebraic("d1").unwrap()));
-    assert!(board.pieces(Color::Black, Piece::King).contains(Square::from_algebraic("e8").unwrap()));
-    assert!(board.pieces(Color::Black, Piece::Queen).contains(Square::from_algebraic("d8").unwrap()));
+    assert!(
+        board
+            .pieces(Color::White, Piece::King)
+            .contains(Square::from_algebraic("e1").unwrap())
+    );
+    assert!(
+        board
+            .pieces(Color::White, Piece::Queen)
+            .contains(Square::from_algebraic("d1").unwrap())
+    );
+    assert!(
+        board
+            .pieces(Color::Black, Piece::King)
+            .contains(Square::from_algebraic("e8").unwrap())
+    );
+    assert!(
+        board
+            .pieces(Color::Black, Piece::Queen)
+            .contains(Square::from_algebraic("d8").unwrap())
+    );
 }
 
 #[test]

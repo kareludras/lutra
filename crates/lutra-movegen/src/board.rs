@@ -75,6 +75,18 @@ impl Board {
         self.occupancy(Color::White) | self.occupancy(Color::Black)
     }
 
+    /// The color and piece type occupying `sq`, if any.
+    pub fn piece_at(&self, sq: Square) -> Option<(Color, Piece)> {
+        for color in [Color::White, Color::Black] {
+            for piece in Piece::ALL {
+                if self.pieces(color, piece).contains(sq) {
+                    return Some((color, piece));
+                }
+            }
+        }
+        None
+    }
+
     #[inline]
     pub fn side_to_move(&self) -> Color {
         self.side_to_move

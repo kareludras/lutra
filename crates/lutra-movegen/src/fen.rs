@@ -57,6 +57,25 @@ impl Board {
 
         Ok(board)
     }
+
+    pub fn to_fen(&self) -> String {
+        let placement = piece_placement_to_fen(self);
+        let side_to_move = match self.side_to_move() {
+            Color::White => "w",
+            Color::Black => "b",
+        };
+        let castling = castling_rights_to_fen(self.castling_rights());
+        let en_passant = match self.en_passant() {
+            Some(sq) => sq.to_algebraic(),
+            None => "-".to_string(),
+        };
+
+        format!(
+            "{placement} {side_to_move} {castling} {en_passant} {} {}",
+            self.halfmove_clock(),
+            self.fullmove_number()
+        )
+    }
 }
 
 fn parse_piece_placement(board: &mut Board, field: &str) -> Result<(), FenError> {
@@ -130,4 +149,58 @@ fn parse_en_passant(field: &str) -> Result<Option<Square>, FenError> {
     Square::from_algebraic(field)
         .map(Some)
         .ok_or(FenError::InvalidEnPassant)
+}
+
+fn piece_placement_to_fen(board: &Board) -> String {
+    let mut ranks = Vec::with_capacity(8);
+
+    for rank in (0..8).rev() {
+        let mut rank_str = String::new();
+        let mut empty_run = 0u8;
+
+        for file in 0..8 {
+            let sq = Square::from_file_rank(file, rank);
+            match board.piece_at(sq) {
+                Some((color, piece)) => {
+                    if empty_run > 0 {
+                        rank_str.push_str(&empty_run.to_string());
+                        empty_run = 0;
+                    }
+                    let c = piece.to_char();
+                    rank_str.push(if color == Color::White {
+                        c
+                    } else {
+                        c.to_ascii_lowercase()
+                    });
+                }
+                None => empty_run += 1,
+            }
+        }
+        if empty_run > 0 {
+            rank_str.push_str(&empty_run.to_string());
+        }
+        ranks.push(rank_str);
+    }
+
+    ranks.join("/")
+}
+
+fn castling_rights_to_fen(rights: CastlingRights) -> String {
+    let mut s = String::new();
+    if rights.has(CastlingRights::WHITE_KINGSIDE) {
+        s.push('K');
+    }
+    if rights.has(CastlingRights::WHITE_QUEENSIDE) {
+        s.push('Q');
+    }
+    if rights.has(CastlingRights::BLACK_KINGSIDE) {
+        s.push('k');
+    }
+    if rights.has(CastlingRights::BLACK_QUEENSIDE) {
+        s.push('q');
+    }
+    if s.is_empty() {
+        s.push('-');
+    }
+    s
 }

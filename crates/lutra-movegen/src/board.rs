@@ -89,4 +89,14 @@ impl Board {
     pub fn en_passant(&self) -> Option<Square> {
         self.en_passant
     }
+
+    #[inline]
+    pub fn halfmove_clock(&self) -> u16 {
+        self.halfmove_clock
+    }
+
+    #[inline]
+    pub fn fullmove_number(&self) -> u16 {
+        self.fullmove_number
+    }
 }

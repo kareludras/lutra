@@ -74,4 +74,12 @@ impl Color {
             Color::Black => Color::White,
         }
     }
+
+    #[inline]
+    pub const fn index(self) -> usize {
+        match self {
+            Color::White => 0,
+            Color::Black => 1,
+        }
+    }
 }

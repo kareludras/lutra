@@ -3,6 +3,7 @@ use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::chess_move::Move;
 use crate::piece::Piece;
+use crate::sliding::{bishop_attacks, queen_attacks, rook_attacks};
 use crate::square::{Color, Square};
 
 /// Converts a set of attacked squares into `Move`s from `from`, tagging
@@ -51,6 +52,48 @@ pub fn generate_king_moves(board: &Board, color: Color) -> Vec<Move> {
     for from in board.pieces(color, Piece::King) {
         let targets = king_attacks(from) & !own_occupancy;
         push_moves_from_targets(board, color, Piece::King, from, targets, &mut moves);
+    }
+
+    moves
+}
+
+/// Pseudo-legal bishop moves for `color`.
+pub fn generate_bishop_moves(board: &Board, color: Color) -> Vec<Move> {
+    let mut moves = Vec::new();
+    let own_occupancy = board.occupancy(color);
+    let all_occupancy = board.all_occupancy();
+
+    for from in board.pieces(color, Piece::Bishop) {
+        let targets = bishop_attacks(from, all_occupancy) & !own_occupancy;
+        push_moves_from_targets(board, color, Piece::Bishop, from, targets, &mut moves);
+    }
+
+    moves
+}
+
+/// Pseudo-legal rook moves for `color`.
+pub fn generate_rook_moves(board: &Board, color: Color) -> Vec<Move> {
+    let mut moves = Vec::new();
+    let own_occupancy = board.occupancy(color);
+    let all_occupancy = board.all_occupancy();
+
+    for from in board.pieces(color, Piece::Rook) {
+        let targets = rook_attacks(from, all_occupancy) & !own_occupancy;
+        push_moves_from_targets(board, color, Piece::Rook, from, targets, &mut moves);
+    }
+
+    moves
+}
+
+/// Pseudo-legal queen moves for `color`.
+pub fn generate_queen_moves(board: &Board, color: Color) -> Vec<Move> {
+    let mut moves = Vec::new();
+    let own_occupancy = board.occupancy(color);
+    let all_occupancy = board.all_occupancy();
+
+    for from in board.pieces(color, Piece::Queen) {
+        let targets = queen_attacks(from, all_occupancy) & !own_occupancy;
+        push_moves_from_targets(board, color, Piece::Queen, from, targets, &mut moves);
     }
 
     moves

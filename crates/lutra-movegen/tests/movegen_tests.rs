@@ -1,4 +1,7 @@
-use lutra_movegen::movegen::{generate_king_moves, generate_knight_moves};
+use lutra_movegen::movegen::{
+    generate_bishop_moves, generate_king_moves, generate_knight_moves, generate_queen_moves,
+    generate_rook_moves,
+};
 use lutra_movegen::{Board, Color, Piece, Square};
 
 #[test]
@@ -33,10 +36,7 @@ fn knight_can_capture_enemy_piece() {
     board.put_piece(Color::Black, Piece::Pawn, a3);
 
     let moves = generate_knight_moves(&board, Color::White);
-    let capture = moves
-        .iter()
-        .find(|m| m.to == a3)
-        .expect("capture move should exist");
+    let capture = moves.iter().find(|m| m.to == a3).expect("capture move should exist");
     assert!(capture.is_capture());
     assert_eq!(capture.captured, Some(Piece::Pawn));
 }
@@ -95,10 +95,7 @@ fn king_can_capture_enemy_piece() {
     board.put_piece(Color::Black, Piece::Pawn, e2);
 
     let moves = generate_king_moves(&board, Color::White);
-    let capture = moves
-        .iter()
-        .find(|m| m.to == e2)
-        .expect("capture move should exist");
+    let capture = moves.iter().find(|m| m.to == e2).expect("capture move should exist");
     assert!(capture.is_capture());
     assert_eq!(capture.captured, Some(Piece::Pawn));
 }
@@ -108,4 +105,95 @@ fn starting_position_king_has_no_moves() {
     let board = Board::starting_position();
     let moves = generate_king_moves(&board, Color::White);
     assert!(moves.is_empty());
+}
+
+#[test]
+fn bishop_on_empty_board_d4_has_thirteen_moves() {
+    let mut board = Board::empty();
+    let d4 = Square::from_algebraic("d4").unwrap();
+    board.put_piece(Color::White, Piece::Bishop, d4);
+
+    let moves = generate_bishop_moves(&board, Color::White);
+    assert_eq!(moves.len(), 13);
+    assert!(moves.iter().all(|m| !m.is_capture()));
+}
+
+#[test]
+fn bishop_stops_before_own_piece() {
+    let mut board = Board::empty();
+    let d4 = Square::from_algebraic("d4").unwrap();
+    let f6 = Square::from_algebraic("f6").unwrap();
+    let g7 = Square::from_algebraic("g7").unwrap();
+    board.put_piece(Color::White, Piece::Bishop, d4);
+    board.put_piece(Color::White, Piece::Pawn, f6);
+
+    let moves = generate_bishop_moves(&board, Color::White);
+    assert!(!moves.iter().any(|m| m.to == f6));
+    assert!(!moves.iter().any(|m| m.to == g7));
+}
+
+#[test]
+fn bishop_can_capture_and_stops_there() {
+    let mut board = Board::empty();
+    let d4 = Square::from_algebraic("d4").unwrap();
+    let f6 = Square::from_algebraic("f6").unwrap();
+    let g7 = Square::from_algebraic("g7").unwrap();
+    board.put_piece(Color::White, Piece::Bishop, d4);
+    board.put_piece(Color::Black, Piece::Pawn, f6);
+
+    let moves = generate_bishop_moves(&board, Color::White);
+    let capture = moves.iter().find(|m| m.to == f6).expect("capture should exist");
+    assert!(capture.is_capture());
+    assert!(!moves.iter().any(|m| m.to == g7));
+}
+
+#[test]
+fn rook_on_empty_board_a1_has_fourteen_moves() {
+    let mut board = Board::empty();
+    board.put_piece(Color::White, Piece::Rook, Square::A1);
+
+    let moves = generate_rook_moves(&board, Color::White);
+    assert_eq!(moves.len(), 14);
+    assert!(moves.iter().all(|m| !m.is_capture()));
+}
+
+#[test]
+fn rook_stops_before_own_piece_and_can_capture_enemy() {
+    let mut board = Board::empty();
+    let a4 = Square::from_algebraic("a4").unwrap();
+    let a5 = Square::from_algebraic("a5").unwrap();
+    board.put_piece(Color::White, Piece::Rook, Square::A1);
+    board.put_piece(Color::Black, Piece::Pawn, a4);
+
+    let moves = generate_rook_moves(&board, Color::White);
+    let capture = moves.iter().find(|m| m.to == a4).expect("capture should exist");
+    assert!(capture.is_capture());
+    assert!(!moves.iter().any(|m| m.to == a5));
+}
+
+#[test]
+fn queen_on_empty_board_d4_combines_bishop_and_rook_moves() {
+    let mut board = Board::empty();
+    let d4 = Square::from_algebraic("d4").unwrap();
+    board.put_piece(Color::White, Piece::Queen, d4);
+
+    let queen_moves = generate_queen_moves(&board, Color::White);
+
+    let mut bishop_board = Board::empty();
+    bishop_board.put_piece(Color::White, Piece::Bishop, d4);
+    let bishop_moves = generate_bishop_moves(&bishop_board, Color::White);
+
+    let mut rook_board = Board::empty();
+    rook_board.put_piece(Color::White, Piece::Rook, d4);
+    let rook_moves = generate_rook_moves(&rook_board, Color::White);
+
+    assert_eq!(queen_moves.len(), bishop_moves.len() + rook_moves.len());
+}
+
+#[test]
+fn starting_position_sliding_pieces_have_no_moves() {
+    let board = Board::starting_position();
+    assert!(generate_bishop_moves(&board, Color::White).is_empty());
+    assert!(generate_rook_moves(&board, Color::White).is_empty());
+    assert!(generate_queen_moves(&board, Color::White).is_empty());
 }

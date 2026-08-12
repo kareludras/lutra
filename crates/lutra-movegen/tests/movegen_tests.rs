@@ -36,7 +36,10 @@ fn knight_can_capture_enemy_piece() {
     board.put_piece(Color::Black, Piece::Pawn, a3);
 
     let moves = generate_knight_moves(&board, Color::White);
-    let capture = moves.iter().find(|m| m.to == a3).expect("capture move should exist");
+    let capture = moves
+        .iter()
+        .find(|m| m.to == a3)
+        .expect("capture move should exist");
     assert!(capture.is_capture());
     assert_eq!(capture.captured, Some(Piece::Pawn));
 }
@@ -95,7 +98,10 @@ fn king_can_capture_enemy_piece() {
     board.put_piece(Color::Black, Piece::Pawn, e2);
 
     let moves = generate_king_moves(&board, Color::White);
-    let capture = moves.iter().find(|m| m.to == e2).expect("capture move should exist");
+    let capture = moves
+        .iter()
+        .find(|m| m.to == e2)
+        .expect("capture move should exist");
     assert!(capture.is_capture());
     assert_eq!(capture.captured, Some(Piece::Pawn));
 }
@@ -142,7 +148,10 @@ fn bishop_can_capture_and_stops_there() {
     board.put_piece(Color::Black, Piece::Pawn, f6);
 
     let moves = generate_bishop_moves(&board, Color::White);
-    let capture = moves.iter().find(|m| m.to == f6).expect("capture should exist");
+    let capture = moves
+        .iter()
+        .find(|m| m.to == f6)
+        .expect("capture should exist");
     assert!(capture.is_capture());
     assert!(!moves.iter().any(|m| m.to == g7));
 }
@@ -166,7 +175,10 @@ fn rook_stops_before_own_piece_and_can_capture_enemy() {
     board.put_piece(Color::Black, Piece::Pawn, a4);
 
     let moves = generate_rook_moves(&board, Color::White);
-    let capture = moves.iter().find(|m| m.to == a4).expect("capture should exist");
+    let capture = moves
+        .iter()
+        .find(|m| m.to == a4)
+        .expect("capture should exist");
     assert!(capture.is_capture());
     assert!(!moves.iter().any(|m| m.to == a5));
 }

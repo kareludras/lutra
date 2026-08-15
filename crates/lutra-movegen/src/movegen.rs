@@ -1,6 +1,8 @@
+use crate::attack_info::is_square_attacked;
 use crate::attacks::{king_attacks, knight_attacks, pawn_attacks};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
+use crate::castling::CastlingRights;
 use crate::chess_move::Move;
 use crate::piece::Piece;
 use crate::sliding::{bishop_attacks, queen_attacks, rook_attacks};
@@ -158,6 +160,62 @@ pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
         {
             moves.push(Move::new(from, ep_square, Piece::Pawn).as_en_passant());
         }
+    }
+
+    moves
+}
+
+/// Pseudo-legal castling moves for `color`. Requires the relevant castling
+/// right, an empty path between king and rook, and that the king is not
+/// currently in check, does not pass through an attacked square, and does
+/// not land on an attacked square.
+pub fn generate_castle_moves(board: &Board, color: Color) -> Vec<Move> {
+    let mut moves = Vec::new();
+    let occupancy = board.all_occupancy();
+    let opponent = color.opposite();
+    let rights = board.castling_rights();
+
+    let rank = match color {
+        Color::White => 0,
+        Color::Black => 7,
+    };
+    let (kingside_flag, queenside_flag) = match color {
+        Color::White => (
+            CastlingRights::WHITE_KINGSIDE,
+            CastlingRights::WHITE_QUEENSIDE,
+        ),
+        Color::Black => (
+            CastlingRights::BLACK_KINGSIDE,
+            CastlingRights::BLACK_QUEENSIDE,
+        ),
+    };
+
+    let e = Square::from_file_rank(4, rank);
+    let f = Square::from_file_rank(5, rank);
+    let g = Square::from_file_rank(6, rank);
+    let d = Square::from_file_rank(3, rank);
+    let c = Square::from_file_rank(2, rank);
+    let b = Square::from_file_rank(1, rank);
+
+    if rights.has(kingside_flag)
+        && !occupancy.contains(f)
+        && !occupancy.contains(g)
+        && !is_square_attacked(board, e, opponent)
+        && !is_square_attacked(board, f, opponent)
+        && !is_square_attacked(board, g, opponent)
+    {
+        moves.push(Move::new(e, g, Piece::King).as_castle());
+    }
+
+    if rights.has(queenside_flag)
+        && !occupancy.contains(d)
+        && !occupancy.contains(c)
+        && !occupancy.contains(b)
+        && !is_square_attacked(board, e, opponent)
+        && !is_square_attacked(board, d, opponent)
+        && !is_square_attacked(board, c, opponent)
+    {
+        moves.push(Move::new(e, c, Piece::King).as_castle());
     }
 
     moves

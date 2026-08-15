@@ -1,3 +1,4 @@
+pub mod attack_info;
 pub mod attacks;
 pub mod bitboard;
 pub mod board;
@@ -9,6 +10,7 @@ pub mod piece;
 pub mod sliding;
 pub mod square;
 
+pub use attack_info::{is_in_check, is_square_attacked};
 pub use bitboard::Bitboard;
 pub use board::Board;
 pub use castling::CastlingRights;

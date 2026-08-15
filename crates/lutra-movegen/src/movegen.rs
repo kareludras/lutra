@@ -1,4 +1,4 @@
-use crate::attacks::{king_attacks, knight_attacks};
+use crate::attacks::{king_attacks, knight_attacks, pawn_attacks};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::chess_move::Move;
@@ -94,6 +94,50 @@ pub fn generate_queen_moves(board: &Board, color: Color) -> Vec<Move> {
     for from in board.pieces(color, Piece::Queen) {
         let targets = queen_attacks(from, all_occupancy) & !own_occupancy;
         push_moves_from_targets(board, color, Piece::Queen, from, targets, &mut moves);
+    }
+
+    moves
+}
+
+/// Pseudo-legal pawn pushes and captures for `color`, excluding promotions
+/// and en passant (those are generated separately once implemented). Pawn
+/// moves that would land on the final rank are skipped here entirely, since
+/// a bare pawn move to the last rank isn't a legal chess move on its own.
+pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
+    let mut moves = Vec::new();
+    let all_occupancy = board.all_occupancy();
+    let enemy_occupancy = board.occupancy(color.opposite());
+
+    let (start_rank, promotion_rank, direction): (u8, u8, i8) = match color {
+        Color::White => (1, 7, 1),
+        Color::Black => (6, 0, -1),
+    };
+
+    for from in board.pieces(color, Piece::Pawn) {
+        let single_rank = (from.rank() as i8 + direction) as u8;
+        let single_target = Square::from_file_rank(from.file(), single_rank);
+
+        if !all_occupancy.contains(single_target) {
+            if single_rank != promotion_rank {
+                moves.push(Move::new(from, single_target, Piece::Pawn));
+            }
+
+            if from.rank() == start_rank {
+                let double_rank = (from.rank() as i8 + 2 * direction) as u8;
+                let double_target = Square::from_file_rank(from.file(), double_rank);
+                if !all_occupancy.contains(double_target) {
+                    moves.push(Move::new(from, double_target, Piece::Pawn).as_double_push());
+                }
+            }
+        }
+
+        let capture_targets = pawn_attacks(color, from) & enemy_occupancy;
+        for to in capture_targets {
+            if to.rank() != promotion_rank {
+                let (_, captured) = board.piece_at(to).expect("enemy piece must be here");
+                moves.push(Move::new(from, to, Piece::Pawn).with_capture(captured));
+            }
+        }
     }
 
     moves

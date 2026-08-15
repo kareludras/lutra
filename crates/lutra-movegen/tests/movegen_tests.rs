@@ -1,6 +1,6 @@
 use lutra_movegen::movegen::{
-    generate_bishop_moves, generate_king_moves, generate_knight_moves, generate_queen_moves,
-    generate_rook_moves,
+    generate_bishop_moves, generate_king_moves, generate_knight_moves, generate_pawn_moves,
+    generate_queen_moves, generate_rook_moves,
 };
 use lutra_movegen::{Board, Color, Piece, Square};
 
@@ -208,4 +208,117 @@ fn starting_position_sliding_pieces_have_no_moves() {
     assert!(generate_bishop_moves(&board, Color::White).is_empty());
     assert!(generate_rook_moves(&board, Color::White).is_empty());
     assert!(generate_queen_moves(&board, Color::White).is_empty());
+}
+
+#[test]
+fn starting_position_white_pawns_have_sixteen_moves() {
+    let board = Board::starting_position();
+    let moves = generate_pawn_moves(&board, Color::White);
+    // 8 pawns, each with single push + double push = 16, no captures available.
+    assert_eq!(moves.len(), 16);
+    assert!(moves.iter().all(|m| !m.is_capture()));
+}
+
+#[test]
+fn starting_position_double_pushes_are_flagged() {
+    let board = Board::starting_position();
+    let moves = generate_pawn_moves(&board, Color::White);
+    let double_pushes: Vec<_> = moves.iter().filter(|m| m.is_double_push).collect();
+    assert_eq!(double_pushes.len(), 8);
+    assert!(double_pushes.iter().all(|m| m.to.rank() == 3));
+}
+
+#[test]
+fn pawn_blocked_directly_ahead_cannot_push() {
+    let mut board = Board::empty();
+    let e2 = Square::from_algebraic("e2").unwrap();
+    let e3 = Square::from_algebraic("e3").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e2);
+    board.put_piece(Color::Black, Piece::Pawn, e3);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert!(moves.is_empty());
+}
+
+#[test]
+fn pawn_blocked_on_double_push_square_only_gets_single_push() {
+    let mut board = Board::empty();
+    let e2 = Square::from_algebraic("e2").unwrap();
+    let e4 = Square::from_algebraic("e4").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e2);
+    board.put_piece(Color::Black, Piece::Pawn, e4);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert_eq!(moves.len(), 1);
+    assert!(!moves[0].is_double_push);
+}
+
+#[test]
+fn pawn_not_on_start_rank_has_no_double_push() {
+    let mut board = Board::empty();
+    let e3 = Square::from_algebraic("e3").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e3);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert_eq!(moves.len(), 1);
+    assert!(!moves[0].is_double_push);
+}
+
+#[test]
+fn pawn_can_capture_diagonally() {
+    let mut board = Board::empty();
+    let e4 = Square::from_algebraic("e4").unwrap();
+    let d5 = Square::from_algebraic("d5").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e4);
+    board.put_piece(Color::Black, Piece::Pawn, d5);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    let capture = moves
+        .iter()
+        .find(|m| m.to == d5)
+        .expect("capture should exist");
+    assert!(capture.is_capture());
+    assert_eq!(capture.captured, Some(Piece::Pawn));
+}
+
+#[test]
+fn pawn_cannot_capture_own_piece() {
+    let mut board = Board::empty();
+    let e4 = Square::from_algebraic("e4").unwrap();
+    let d5 = Square::from_algebraic("d5").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e4);
+    board.put_piece(Color::White, Piece::Pawn, d5);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert!(!moves.iter().any(|m| m.to == d5));
+}
+
+#[test]
+fn black_pawn_pushes_toward_rank_one() {
+    let mut board = Board::empty();
+    let e7 = Square::from_algebraic("e7").unwrap();
+    board.put_piece(Color::Black, Piece::Pawn, e7);
+
+    let moves = generate_pawn_moves(&board, Color::Black);
+    assert_eq!(moves.len(), 2);
+    assert!(
+        moves
+            .iter()
+            .any(|m| m.to == Square::from_algebraic("e6").unwrap())
+    );
+    assert!(
+        moves
+            .iter()
+            .any(|m| m.to == Square::from_algebraic("e5").unwrap())
+    );
+}
+
+#[test]
+fn pawn_on_seventh_rank_generates_no_moves_yet_since_promotion_is_unimplemented() {
+    let mut board = Board::empty();
+    let e7 = Square::from_algebraic("e7").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e7);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert!(moves.is_empty());
 }

@@ -314,11 +314,60 @@ fn black_pawn_pushes_toward_rank_one() {
 }
 
 #[test]
-fn pawn_on_seventh_rank_generates_no_moves_yet_since_promotion_is_unimplemented() {
+fn pawn_push_to_final_rank_generates_four_promotion_choices() {
     let mut board = Board::empty();
     let e7 = Square::from_algebraic("e7").unwrap();
     board.put_piece(Color::White, Piece::Pawn, e7);
 
     let moves = generate_pawn_moves(&board, Color::White);
+    assert_eq!(moves.len(), 4);
+
+    let promos: Vec<Piece> = moves.iter().map(|m| m.promotion.unwrap()).collect();
+    assert!(promos.contains(&Piece::Queen));
+    assert!(promos.contains(&Piece::Rook));
+    assert!(promos.contains(&Piece::Bishop));
+    assert!(promos.contains(&Piece::Knight));
+    assert!(moves.iter().all(|m| !m.is_capture()));
+}
+
+#[test]
+fn pawn_capture_promotion_generates_four_choices_with_capture_flag() {
+    let mut board = Board::empty();
+    let e7 = Square::from_algebraic("e7").unwrap();
+    let d8 = Square::from_algebraic("d8").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e7);
+    board.put_piece(Color::Black, Piece::Rook, d8);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    let capture_promos: Vec<_> = moves.iter().filter(|m| m.to == d8).collect();
+    assert_eq!(capture_promos.len(), 4);
+    assert!(capture_promos.iter().all(|m| m.is_capture()));
+    assert!(
+        capture_promos
+            .iter()
+            .all(|m| m.captured == Some(Piece::Rook))
+    );
+}
+
+#[test]
+fn pawn_push_blocked_at_final_rank_generates_no_promotions() {
+    let mut board = Board::empty();
+    let e7 = Square::from_algebraic("e7").unwrap();
+    let e8 = Square::from_algebraic("e8").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e7);
+    board.put_piece(Color::Black, Piece::Rook, e8);
+
+    let moves = generate_pawn_moves(&board, Color::White);
     assert!(moves.is_empty());
+}
+
+#[test]
+fn black_pawn_promotes_on_rank_one() {
+    let mut board = Board::empty();
+    let e2 = Square::from_algebraic("e2").unwrap();
+    board.put_piece(Color::Black, Piece::Pawn, e2);
+
+    let moves = generate_pawn_moves(&board, Color::Black);
+    assert_eq!(moves.len(), 4);
+    assert!(moves.iter().all(|m| m.to.rank() == 0));
 }

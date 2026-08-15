@@ -99,10 +99,10 @@ pub fn generate_queen_moves(board: &Board, color: Color) -> Vec<Move> {
     moves
 }
 
-/// Pseudo-legal pawn pushes and captures for `color`, excluding promotions
-/// and en passant (those are generated separately once implemented). Pawn
-/// moves that would land on the final rank are skipped here entirely, since
-/// a bare pawn move to the last rank isn't a legal chess move on its own.
+const PROMOTION_PIECES: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
+
+/// Pseudo-legal pawn pushes, captures, and promotions for `color`, excluding
+/// en passant (generated separately once implemented).
 pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
     let mut moves = Vec::new();
     let all_occupancy = board.all_occupancy();
@@ -118,23 +118,35 @@ pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
         let single_target = Square::from_file_rank(from.file(), single_rank);
 
         if !all_occupancy.contains(single_target) {
-            if single_rank != promotion_rank {
+            if single_rank == promotion_rank {
+                for promo in PROMOTION_PIECES {
+                    moves.push(Move::new(from, single_target, Piece::Pawn).with_promotion(promo));
+                }
+            } else {
                 moves.push(Move::new(from, single_target, Piece::Pawn));
-            }
 
-            if from.rank() == start_rank {
-                let double_rank = (from.rank() as i8 + 2 * direction) as u8;
-                let double_target = Square::from_file_rank(from.file(), double_rank);
-                if !all_occupancy.contains(double_target) {
-                    moves.push(Move::new(from, double_target, Piece::Pawn).as_double_push());
+                if from.rank() == start_rank {
+                    let double_rank = (from.rank() as i8 + 2 * direction) as u8;
+                    let double_target = Square::from_file_rank(from.file(), double_rank);
+                    if !all_occupancy.contains(double_target) {
+                        moves.push(Move::new(from, double_target, Piece::Pawn).as_double_push());
+                    }
                 }
             }
         }
 
         let capture_targets = pawn_attacks(color, from) & enemy_occupancy;
         for to in capture_targets {
-            if to.rank() != promotion_rank {
-                let (_, captured) = board.piece_at(to).expect("enemy piece must be here");
+            let (_, captured) = board.piece_at(to).expect("enemy piece must be here");
+            if to.rank() == promotion_rank {
+                for promo in PROMOTION_PIECES {
+                    moves.push(
+                        Move::new(from, to, Piece::Pawn)
+                            .with_capture(captured)
+                            .with_promotion(promo),
+                    );
+                }
+            } else {
                 moves.push(Move::new(from, to, Piece::Pawn).with_capture(captured));
             }
         }

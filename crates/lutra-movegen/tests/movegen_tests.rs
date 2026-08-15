@@ -371,3 +371,54 @@ fn black_pawn_promotes_on_rank_one() {
     assert_eq!(moves.len(), 4);
     assert!(moves.iter().all(|m| m.to.rank() == 0));
 }
+
+#[test]
+fn pawn_can_capture_en_passant_when_target_square_matches() {
+    let mut board = Board::empty();
+    let e5 = Square::from_algebraic("e5").unwrap();
+    let d6 = Square::from_algebraic("d6").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e5);
+    board.set_en_passant(Some(d6));
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    let ep_move = moves
+        .iter()
+        .find(|m| m.is_en_passant)
+        .expect("en passant move should exist");
+    assert_eq!(ep_move.to, d6);
+    assert!(ep_move.is_capture());
+    assert_eq!(ep_move.captured, None);
+}
+
+#[test]
+fn pawn_does_not_generate_en_passant_when_not_attacking_target_square() {
+    let mut board = Board::empty();
+    let a5 = Square::from_algebraic("a5").unwrap();
+    let d6 = Square::from_algebraic("d6").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, a5);
+    board.set_en_passant(Some(d6));
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert!(!moves.iter().any(|m| m.is_en_passant));
+}
+
+#[test]
+fn no_en_passant_moves_when_board_has_no_en_passant_target() {
+    let mut board = Board::empty();
+    let e5 = Square::from_algebraic("e5").unwrap();
+    board.put_piece(Color::White, Piece::Pawn, e5);
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    assert!(!moves.iter().any(|m| m.is_en_passant));
+}
+
+#[test]
+fn en_passant_from_fen_position_generates_correctly() {
+    let fen = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
+    let board = Board::from_fen(fen).unwrap();
+
+    let moves = generate_pawn_moves(&board, Color::White);
+    let ep_moves: Vec<_> = moves.iter().filter(|m| m.is_en_passant).collect();
+    assert_eq!(ep_moves.len(), 1);
+    assert_eq!(ep_moves[0].to, Square::from_algebraic("d6").unwrap());
+}

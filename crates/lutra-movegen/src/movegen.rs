@@ -101,12 +101,12 @@ pub fn generate_queen_moves(board: &Board, color: Color) -> Vec<Move> {
 
 const PROMOTION_PIECES: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
-/// Pseudo-legal pawn pushes, captures, and promotions for `color`, excluding
-/// en passant (generated separately once implemented).
+/// Pseudo-legal pawn pushes, captures, promotions, and en passant for `color`.
 pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
     let mut moves = Vec::new();
     let all_occupancy = board.all_occupancy();
     let enemy_occupancy = board.occupancy(color.opposite());
+    let en_passant_target = board.en_passant();
 
     let (start_rank, promotion_rank, direction): (u8, u8, i8) = match color {
         Color::White => (1, 7, 1),
@@ -135,7 +135,9 @@ pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
             }
         }
 
-        let capture_targets = pawn_attacks(color, from) & enemy_occupancy;
+        let attacked = pawn_attacks(color, from);
+
+        let capture_targets = attacked & enemy_occupancy;
         for to in capture_targets {
             let (_, captured) = board.piece_at(to).expect("enemy piece must be here");
             if to.rank() == promotion_rank {
@@ -149,6 +151,12 @@ pub fn generate_pawn_moves(board: &Board, color: Color) -> Vec<Move> {
             } else {
                 moves.push(Move::new(from, to, Piece::Pawn).with_capture(captured));
             }
+        }
+
+        if let Some(ep_square) = en_passant_target
+            && attacked.contains(ep_square)
+        {
+            moves.push(Move::new(from, ep_square, Piece::Pawn).as_en_passant());
         }
     }
 

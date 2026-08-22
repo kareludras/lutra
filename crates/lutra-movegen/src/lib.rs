@@ -1,3 +1,4 @@
+pub mod apply_move;
 pub mod attack_info;
 pub mod attacks;
 pub mod bitboard;

@@ -11,7 +11,7 @@ A UCI chess engine written in Rust.
 - [x] FEN parsing and serialization
 - [x] Move type
 - [x] Pseudo-legal knight, king, sliding, and pawn moves (pushes, captures, promotions, en passant)
-- [ ] Castling move generation
+- [x] Castling move generation
 - [ ] Make/unmake move
 - [ ] Legality filtering (king safety)
 - [ ] Perft validated against standard test positions

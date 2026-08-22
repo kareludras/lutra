@@ -12,7 +12,7 @@ A UCI chess engine written in Rust.
 - [x] Move type
 - [x] Pseudo-legal knight, king, sliding, and pawn moves (pushes, captures, promotions, en passant)
 - [x] Castling move generation
-- [ ] Make/unmake move
+- [x] Make/unmake move
 - [ ] Legality filtering (king safety)
 - [ ] Perft validated against standard test positions
 - [ ] Basic alpha-beta search with quiescence and iterative deepening

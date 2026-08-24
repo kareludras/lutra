@@ -14,7 +14,7 @@ A UCI chess engine written in Rust.
 - [x] Castling move generation
 - [x] Make/unmake move
 - [x] Legality filtering (king safety)
-- [ ] Perft validated against standard test positions
+- [x] Perft validated against standard test positions
 - [ ] Basic alpha-beta search with quiescence and iterative deepening
 - [ ] Minimal UCI protocol support
 - [ ] Benchmarking harness (fastchess/SPRT)

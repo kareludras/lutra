@@ -7,6 +7,56 @@ use lutra_movegen::{Board, generate_legal_moves, is_in_check};
 pub const MATE_VALUE: i32 = 1_000_000;
 const INFINITY: i32 = MATE_VALUE + 1;
 
+/// Extends search past the depth cutoff by resolving captures (and, if in
+/// check, all responses) until the position is quiet. This avoids the
+/// horizon effect, where a plain depth-limited search might stop right
+/// before an obviously bad trade completes.
+pub fn quiescence(board: &Board, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+    let color = board.side_to_move();
+    let in_check = is_in_check(board, color);
+    let moves = generate_legal_moves(board, color);
+
+    if moves.is_empty() {
+        return if in_check {
+            -(MATE_VALUE - ply as i32)
+        } else {
+            0
+        };
+    }
+
+    let stand_pat = evaluate(board);
+
+    // Can't "stand pat" while in check: the position isn't quiet until the
+    // check is resolved, so every legal response must be searched.
+    if !in_check {
+        if stand_pat >= beta {
+            return beta;
+        }
+        if stand_pat > alpha {
+            alpha = stand_pat;
+        }
+    }
+
+    let candidates: Vec<_> = if in_check {
+        moves
+    } else {
+        moves.into_iter().filter(|m| m.is_capture()).collect()
+    };
+
+    for mv in candidates {
+        let child = board.make_move(mv);
+        let score = -quiescence(&child, -beta, -alpha, ply + 1);
+        if score >= beta {
+            return beta;
+        }
+        if score > alpha {
+            alpha = score;
+        }
+    }
+
+    alpha
+}
+
 /// Negamax search with alpha-beta pruning. Returns a score from the
 /// perspective of the side to move at `board` (positive is good for them).
 pub fn negamax(board: &Board, depth: u32, ply: u32, mut alpha: i32, beta: i32) -> i32 {
@@ -22,7 +72,7 @@ pub fn negamax(board: &Board, depth: u32, ply: u32, mut alpha: i32, beta: i32) -
     }
 
     if depth == 0 {
-        return evaluate(board);
+        return quiescence(board, alpha, beta, ply);
     }
 
     let mut best = -INFINITY;

@@ -1,3 +1,7 @@
+use std::io::{stdin, stdout};
+
 fn main() {
-    println!("placeholder");
+    let stdin = stdin();
+    let stdout = stdout();
+    lutra_uci::run(stdin.lock(), stdout.lock());
 }

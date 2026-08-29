@@ -25,4 +25,5 @@ name = "lutra-uci"
 version = "0.1.0"
 dependencies = [
  "lutra-engine",
+ "lutra-movegen",
 ]

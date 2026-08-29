@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 lutra-engine = { path = "../lutra-engine" }
+lutra-movegen = { path = "../lutra-movegen" }

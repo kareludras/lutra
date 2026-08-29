@@ -16,7 +16,7 @@ A UCI chess engine written in Rust.
 - [x] Legality filtering (king safety)
 - [x] Perft validated against standard test positions
 - [x] Basic alpha-beta search with quiescence and iterative deepening
-- [ ] Minimal UCI protocol support
+- [x] Minimal UCI protocol support
 - [ ] Benchmarking harness (fastchess/SPRT)
 - [ ] Classical evaluation
 - [ ] Advanced search heuristics

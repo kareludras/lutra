@@ -1,13 +1,28 @@
 use lutra_engine::{SearchLimits, iterative_deepening};
-use lutra_movegen::{Board, generate_legal_moves};
+use lutra_movegen::{Board, Color, generate_legal_moves};
 use std::io::{BufRead, Write};
 use std::time::Duration;
 
-/// Depth used for `go` with no depth or movetime specified.
+/// Depth used for `go` with no depth, movetime, or clock info specified.
 const DEFAULT_DEPTH: u32 = 6;
-/// Depth cap when searching under a movetime budget, since iterative
+/// Depth cap when searching under a time budget, since iterative
 /// deepening needs some upper bound even when time-limited.
-const MOVETIME_MAX_DEPTH: u32 = 64;
+const TIME_BASED_MAX_DEPTH: u32 = 64;
+/// Safety margin subtracted from the remaining clock to avoid flagging as
+/// unresponsive due to search/IO overhead eating into the last few ms.
+const SAFETY_BUFFER_MS: u64 = 50;
+/// Rough estimate of how many moves remain in the game, used to divide up
+/// the remaining clock when no explicit movestogo is given.
+const ASSUMED_MOVES_REMAINING: u64 = 30;
+
+/// Allocates a per-move time budget from the remaining clock and increment,
+/// clamped so it never exceeds what's actually left on the clock.
+fn compute_move_time(time_left_ms: u64, increment_ms: u64) -> Duration {
+    let base = time_left_ms / ASSUMED_MOVES_REMAINING;
+    let budget = base + increment_ms;
+    let max_allowed = time_left_ms.saturating_sub(SAFETY_BUFFER_MS);
+    Duration::from_millis(budget.min(max_allowed).max(10))
+}
 
 pub struct UciEngine {
     board: Board,
@@ -98,19 +113,35 @@ impl UciEngine {
     fn handle_go<'a, W: Write>(&mut self, parts: impl Iterator<Item = &'a str>, out: &mut W) {
         let mut depth = None;
         let mut movetime = None;
+        let mut wtime = None;
+        let mut btime = None;
+        let mut winc = None;
+        let mut binc = None;
         let mut iter = parts;
         while let Some(token) = iter.next() {
             match token {
                 "depth" => depth = iter.next().and_then(|s| s.parse::<u32>().ok()),
                 "movetime" => movetime = iter.next().and_then(|s| s.parse::<u64>().ok()),
+                "wtime" => wtime = iter.next().and_then(|s| s.parse::<u64>().ok()),
+                "btime" => btime = iter.next().and_then(|s| s.parse::<u64>().ok()),
+                "winc" => winc = iter.next().and_then(|s| s.parse::<u64>().ok()),
+                "binc" => binc = iter.next().and_then(|s| s.parse::<u64>().ok()),
                 _ => {}
             }
         }
 
-        let limits = match (depth, movetime) {
-            (Some(d), _) => SearchLimits::depth(d),
-            (None, Some(ms)) => SearchLimits::time(Duration::from_millis(ms), MOVETIME_MAX_DEPTH),
-            (None, None) => SearchLimits::depth(DEFAULT_DEPTH),
+        let limits = if let Some(d) = depth {
+            SearchLimits::depth(d)
+        } else if let Some(ms) = movetime {
+            SearchLimits::time(Duration::from_millis(ms), TIME_BASED_MAX_DEPTH)
+        } else if wtime.is_some() || btime.is_some() {
+            let (my_time, my_inc) = match self.board.side_to_move() {
+                Color::White => (wtime.unwrap_or(0), winc.unwrap_or(0)),
+                Color::Black => (btime.unwrap_or(0), binc.unwrap_or(0)),
+            };
+            SearchLimits::time(compute_move_time(my_time, my_inc), TIME_BASED_MAX_DEPTH)
+        } else {
+            SearchLimits::depth(DEFAULT_DEPTH)
         };
 
         match iterative_deepening(&self.board, limits) {

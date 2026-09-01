@@ -163,3 +163,57 @@ fn full_uci_handshake_sequence_via_run() {
     assert!(output.contains("readyok"));
     assert!(output.contains("bestmove"));
 }
+
+#[test]
+fn go_with_wtime_btime_returns_promptly_under_a_short_time_control() {
+    // Regression test: reproduces the exact scenario that caused fastchess
+    // to report the engine as unresponsive under tc=10+0.1 (10 seconds for
+    // the whole game). Before wtime/btime parsing was added, the engine
+    // ignored the clock entirely and searched a fixed depth every move,
+    // quickly blowing the time budget.
+    let mut engine = UciEngine::new();
+    let mut out = Vec::new();
+    engine.handle_command("position startpos", &mut out);
+
+    let start = std::time::Instant::now();
+    let output = run_command(&mut engine, "go wtime 10000 btime 10000 winc 100 binc 100");
+    let elapsed = start.elapsed();
+
+    assert!(output.starts_with("bestmove "));
+    // With ~10s total and our 1/30-of-remaining-time allocation, a single
+    // move should take well under a second, not anywhere close to 10s.
+    assert!(
+        elapsed < std::time::Duration::from_secs(2),
+        "move took {elapsed:?}, which would blow the clock under a real short time control"
+    );
+}
+
+#[test]
+fn go_with_very_low_remaining_time_still_returns_a_move_quickly() {
+    let mut engine = UciEngine::new();
+    let mut out = Vec::new();
+    engine.handle_command("position startpos", &mut out);
+
+    let start = std::time::Instant::now();
+    let output = run_command(&mut engine, "go wtime 200 btime 200 winc 0 binc 0");
+    let elapsed = start.elapsed();
+
+    assert!(output.starts_with("bestmove "));
+    assert!(elapsed < std::time::Duration::from_millis(500));
+}
+
+#[test]
+fn go_uses_black_clock_when_black_is_to_move() {
+    let mut engine = UciEngine::new();
+    let mut out = Vec::new();
+    // After 1.e4, it's black to move; a wildly generous wtime with a tiny
+    // btime should still resolve quickly, proving it reads btime, not wtime.
+    engine.handle_command("position startpos moves e2e4", &mut out);
+
+    let start = std::time::Instant::now();
+    let output = run_command(&mut engine, "go wtime 999999999 btime 300 winc 0 binc 0");
+    let elapsed = start.elapsed();
+
+    assert!(output.starts_with("bestmove "));
+    assert!(elapsed < std::time::Duration::from_millis(500));
+}

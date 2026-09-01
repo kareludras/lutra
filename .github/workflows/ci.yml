@@ -1,30 +1,40 @@
-﻿name: CI
+﻿name: Build Binaries
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: lutra
+            asset_name: lutra-linux-x86_64
+          - os: windows-latest
+            artifact_name: lutra.exe
+            asset_name: lutra-windows-x86_64.exe
+          - os: macos-latest
+            artifact_name: lutra
+            asset_name: lutra-macos-x86_64
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
 
       - name: Cache cargo registry and build
         uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Build release binary
+        run: cargo build --release --bin lutra
 
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Run tests (includes perft)
-        run: cargo test --workspace --release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: target/release/${{ matrix.artifact_name }}

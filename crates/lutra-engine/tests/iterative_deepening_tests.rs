@@ -158,3 +158,33 @@ fn search_does_not_grossly_overshoot_a_realistic_time_budget() {
         "search took {elapsed:?} against a {budget:?} budget"
     );
 }
+
+#[test]
+fn even_extreme_time_pressure_returns_a_move_with_bounded_overrun() {
+    // Regression test for a real bug found via live fastchess self-play:
+    // roughly a third of games were lost on time by a very consistent
+    // ~100-114ms overrun. Root cause was that depth 1 was unconditionally
+    // exempt from the deadline (to always guarantee a move), but depth 1's
+    // own real cost isn't free in this unoptimized engine, so once a
+    // game's clock ran down late-game, depth 1 alone could legitimately
+    // exceed the shrinking per-move budget every time. Depth 1 must now be
+    // interruptible like every other depth, falling back to an instant
+    // first-legal-move return if even it can't complete in time.
+    let board = Board::starting_position();
+    let budget = Duration::from_millis(5);
+    let limits = SearchLimits::time(budget, 64);
+
+    let start = std::time::Instant::now();
+    let result = iterative_deepening(&board, limits).expect("must always find a move");
+    let elapsed = start.elapsed();
+
+    let legal_moves = generate_legal_moves(&board, Color::White);
+    assert!(legal_moves.contains(&result.best_move));
+    // A tiny budget should trigger the near-instant fallback, not a full
+    // uninterruptible depth-1 search; bounded generously to absorb
+    // reasonable overhead while catching the ~100ms+ class of regression.
+    assert!(
+        elapsed < Duration::from_millis(50),
+        "search took {elapsed:?} against a {budget:?} budget - this is the exact overrun pattern seen in live testing"
+    );
+}

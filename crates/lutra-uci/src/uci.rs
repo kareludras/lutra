@@ -10,7 +10,7 @@ const DEFAULT_DEPTH: u32 = 6;
 const TIME_BASED_MAX_DEPTH: u32 = 64;
 /// Safety margin subtracted from the remaining clock to avoid flagging as
 /// unresponsive due to search/IO overhead eating into the last few ms.
-const SAFETY_BUFFER_MS: u64 = 50;
+const SAFETY_BUFFER_MS: u64 = 100;
 /// Rough estimate of how many moves remain in the game, used to divide up
 /// the remaining clock when no explicit movestogo is given.
 const ASSUMED_MOVES_REMAINING: u64 = 30;

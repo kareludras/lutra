@@ -112,3 +112,16 @@ fn shallow_search_avoids_horizon_blunder_thanks_to_quiescence() {
     let queen_still_safe = !black_moves.iter().any(|m| m.captured == Some(Piece::Queen));
     assert!(queen_still_safe);
 }
+
+#[test]
+fn quiescence_has_a_ply_safety_cap_to_prevent_runaway_recursion() {
+    // Regression test for a real bug found via live fastchess testing:
+    // quiescence's in-check branch must search every legal response (not
+    // just captures), and without repetition detection that recursion had
+    // no bound, letting long forced-check sequences in real game positions
+    // recurse extremely deep. Calling quiescence at/above the ply cap
+    // should return immediately via static eval, not recurse further.
+    let board = Board::starting_position();
+    let score = quiescence(&board, -MATE_VALUE - 1, MATE_VALUE + 1, 100);
+    assert_eq!(score, evaluate(&board));
+}

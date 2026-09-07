@@ -7,11 +7,23 @@ use lutra_movegen::{Board, generate_legal_moves, is_in_check};
 pub const MATE_VALUE: i32 = 1_000_000;
 const INFINITY: i32 = MATE_VALUE + 1;
 
+/// Hard safety cap on quiescence recursion depth. Without repetition
+/// detection, a long forced-check sequence (the in-check branch below must
+/// search every legal response, not just captures) has no natural bound
+/// and can recurse extremely deep in complex real-game positions, even
+/// though it never surfaces in short hand-built test positions. This caps
+/// worst-case recursion regardless of position complexity.
+const MAX_PLY: u32 = 100;
+
 /// Extends search past the depth cutoff by resolving captures (and, if in
 /// check, all responses) until the position is quiet. This avoids the
 /// horizon effect, where a plain depth-limited search might stop right
 /// before an obviously bad trade completes.
 pub fn quiescence(board: &Board, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+    if ply >= MAX_PLY {
+        return evaluate(board);
+    }
+
     let color = board.side_to_move();
     let in_check = is_in_check(board, color);
     let moves = generate_legal_moves(board, color);

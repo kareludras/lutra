@@ -47,10 +47,22 @@ fn zero_time_budget_still_returns_a_legal_move() {
     // Regression test: even an essentially-zero time budget must not
     // prevent the engine from returning a legal move, since a UCI engine
     // can never legitimately respond with "no move" while one exists.
+    // Note: with interruptible search checking the clock every N nodes
+    // rather than every single node, a very fast/shallow iteration can
+    // complete before ever checking an already-expired deadline, so this
+    // doesn't guarantee exactly depth 1 - only that it returns quickly
+    // and stays well short of the requested max depth.
     let board = Board::starting_position();
-    let limits = SearchLimits::time(Duration::from_nanos(1), 10);
+    let limits = SearchLimits::time(Duration::from_nanos(1), 50);
+    let start = std::time::Instant::now();
     let result = iterative_deepening(&board, limits).expect("must always find a move");
-    assert_eq!(result.depth, 1);
+    let elapsed = start.elapsed();
+
+    assert!(result.depth < 50);
+    assert!(
+        elapsed < Duration::from_secs(1),
+        "search took {elapsed:?} under a near-zero time budget"
+    );
 
     let legal_moves = generate_legal_moves(&board, Color::White);
     assert!(legal_moves.contains(&result.best_move));
@@ -118,4 +130,31 @@ fn no_legal_moves_returns_none() {
 
     let result = iterative_deepening(&board, SearchLimits::depth(5));
     assert!(result.is_none());
+}
+
+#[test]
+fn search_does_not_grossly_overshoot_a_realistic_time_budget() {
+    // Regression test for a real bug found via live fastchess testing: a
+    // single deep iteration could take far longer than the requested
+    // budget because the old implementation only checked the clock
+    // between iterations, not during one. Under a 10s/game time control
+    // (roughly the ~333ms per-move budget lutra-uci computes), a single
+    // move must not balloon to multiple seconds.
+    let board = Board::starting_position();
+    let budget = Duration::from_millis(333);
+    let limits = SearchLimits::time(budget, 64);
+
+    let start = std::time::Instant::now();
+    let result = iterative_deepening(&board, limits).expect("a result should be found");
+    let elapsed = start.elapsed();
+
+    let legal_moves = generate_legal_moves(&board, Color::White);
+    assert!(legal_moves.contains(&result.best_move));
+    // Generous margin over the budget to account for the depth-1 guarantee
+    // and the coarse (every-1024-node) deadline check granularity, while
+    // still catching gross multi-second overshoots like the one observed.
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "search took {elapsed:?} against a {budget:?} budget"
+    );
 }

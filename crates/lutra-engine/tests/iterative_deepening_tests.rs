@@ -188,3 +188,29 @@ fn even_extreme_time_pressure_returns_a_move_with_bounded_overrun() {
         "search took {elapsed:?} against a {budget:?} budget - this is the exact overrun pattern seen in live testing"
     );
 }
+
+#[test]
+fn depth_only_search_never_exceeds_the_absolute_safety_ceiling() {
+    // Regression test for a real bug found via live fastchess testing at
+    // -concurrency 1 (ruling out CPU contention): a game stalled entirely
+    // ("not responsive"), distinct from the smaller ~100ms overruns fixed
+    // separately. SearchLimits::depth() has no move_time at all, so
+    // previously such a search had zero wall-clock bound whatsoever - a
+    // wide, tactically complex position could in principle take a very
+    // long but finite time even with the quiescence ply cap in place,
+    // since the ply cap bounds recursion depth, not node count or time.
+    // iterative_deepening must now always respect an absolute ceiling
+    // regardless of the requested limits.
+    let board = Board::starting_position();
+    let start = std::time::Instant::now();
+    let result =
+        iterative_deepening(&board, SearchLimits::depth(200)).expect("a result should be found");
+    let elapsed = start.elapsed();
+
+    let legal_moves = generate_legal_moves(&board, Color::White);
+    assert!(legal_moves.contains(&result.best_move));
+    assert!(
+        elapsed < Duration::from_secs(6),
+        "search took {elapsed:?}, exceeding the absolute safety ceiling"
+    );
+}

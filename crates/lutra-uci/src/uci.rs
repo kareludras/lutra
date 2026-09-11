@@ -15,13 +15,19 @@ const SAFETY_BUFFER_MS: u64 = 100;
 /// the remaining clock when no explicit movestogo is given.
 const ASSUMED_MOVES_REMAINING: u64 = 30;
 
-/// Allocates a per-move time budget from the remaining clock and increment,
-/// clamped so it never exceeds what's actually left on the clock.
-fn compute_move_time(time_left_ms: u64, increment_ms: u64) -> Duration {
+/// Allocates a per-move time budget from the remaining clock, clamped so
+/// it never exceeds what's actually left. Deliberately does NOT add the
+/// increment as extra spendable budget for the current move: in standard
+/// Fischer increment rules, the increment is credited to the clock only
+/// after a move completes, so it's not available to spend on the move
+/// currently in progress. Treating it as bonus budget for the current
+/// move (an earlier version of this function did) caused a systematic
+/// overrun of almost exactly the increment amount on every single move,
+/// confirmed by live testing against fastchess.
+fn compute_move_time(time_left_ms: u64, _increment_ms: u64) -> Duration {
     let base = time_left_ms / ASSUMED_MOVES_REMAINING;
-    let budget = base + increment_ms;
     let max_allowed = time_left_ms.saturating_sub(SAFETY_BUFFER_MS);
-    Duration::from_millis(budget.min(max_allowed).max(10))
+    Duration::from_millis(base.min(max_allowed).max(10))
 }
 
 pub struct UciEngine {
@@ -161,5 +167,43 @@ pub fn run<R: BufRead, W: Write>(input: R, mut output: W) {
             break;
         }
         output.flush().ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_move_time_does_not_add_increment_as_current_move_budget() {
+        // Regression test for a real bug found via live fastchess testing:
+        // tc=10+0.1 (100ms increment) caused ~100-110ms time losses on
+        // nearly every move. Root cause was adding the full increment as
+        // extra spendable budget for the CURRENT move, when in standard
+        // Fischer increment rules it's only credited after the move
+        // completes. The budget must be based on remaining time alone.
+        let time_left = 10_000;
+        let increment = 100;
+        let budget = compute_move_time(time_left, increment);
+
+        let expected_without_increment = time_left / ASSUMED_MOVES_REMAINING;
+        assert_eq!(budget.as_millis() as u64, expected_without_increment);
+
+        // Specifically: the budget must NOT equal the old (buggy) formula.
+        let old_buggy_budget = expected_without_increment + increment;
+        assert_ne!(budget.as_millis() as u64, old_buggy_budget);
+    }
+
+    #[test]
+    fn compute_move_time_never_exceeds_remaining_time_minus_safety_buffer() {
+        let time_left = 200;
+        let budget = compute_move_time(time_left, 100);
+        assert!(budget.as_millis() as u64 <= time_left - SAFETY_BUFFER_MS);
+    }
+
+    #[test]
+    fn compute_move_time_has_a_floor_even_with_very_little_time_left() {
+        let budget = compute_move_time(5, 0);
+        assert!(budget.as_millis() >= 10);
     }
 }

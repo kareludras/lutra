@@ -1,5 +1,6 @@
 use crate::eval::evaluate;
 use lutra_movegen::{Board, generate_legal_moves, is_in_check};
+use std::time::{Duration, Instant};
 
 /// Score assigned to being checkmated at the root (ply 0). Actual mate
 /// scores are offset by ply so that faster mates score better/worse than
@@ -19,7 +20,20 @@ const MAX_PLY: u32 = 100;
 /// check, all responses) until the position is quiet. This avoids the
 /// horizon effect, where a plain depth-limited search might stop right
 /// before an obviously bad trade completes.
-pub fn quiescence(board: &Board, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+pub fn quiescence(board: &Board, alpha: i32, beta: i32, ply: u32) -> i32 {
+    quiescence_inner(&mut SearchClock::unbounded(), board, alpha, beta, ply)
+}
+
+fn quiescence_inner(
+    clock: &mut SearchClock,
+    board: &Board,
+    mut alpha: i32,
+    beta: i32,
+    ply: u32,
+) -> i32 {
+    if clock.should_stop() {
+        return 0;
+    }
     if ply >= MAX_PLY {
         return evaluate(board);
     }
@@ -57,7 +71,10 @@ pub fn quiescence(board: &Board, mut alpha: i32, beta: i32, ply: u32) -> i32 {
 
     for mv in candidates {
         let child = board.make_move(mv);
-        let score = -quiescence(&child, -beta, -alpha, ply + 1);
+        let score = -quiescence_inner(clock, &child, -beta, -alpha, ply + 1);
+        if clock.stopped {
+            return 0;
+        }
         if score >= beta {
             return beta;
         }
@@ -71,7 +88,21 @@ pub fn quiescence(board: &Board, mut alpha: i32, beta: i32, ply: u32) -> i32 {
 
 /// Negamax search with alpha-beta pruning. Returns a score from the
 /// perspective of the side to move at `board` (positive is good for them).
-pub fn negamax(board: &Board, depth: u32, ply: u32, mut alpha: i32, beta: i32) -> i32 {
+pub fn negamax(board: &Board, depth: u32, ply: u32, alpha: i32, beta: i32) -> i32 {
+    negamax_inner(&mut SearchClock::unbounded(), board, depth, ply, alpha, beta)
+}
+
+fn negamax_inner(
+    clock: &mut SearchClock,
+    board: &Board,
+    depth: u32,
+    ply: u32,
+    mut alpha: i32,
+    beta: i32,
+) -> i32 {
+    if clock.should_stop() {
+        return 0;
+    }
     let color = board.side_to_move();
     let moves = generate_legal_moves(board, color);
 
@@ -84,13 +115,16 @@ pub fn negamax(board: &Board, depth: u32, ply: u32, mut alpha: i32, beta: i32) -
     }
 
     if depth == 0 {
-        return quiescence(board, alpha, beta, ply);
+        return quiescence_inner(clock, board, alpha, beta, ply);
     }
 
     let mut best = -INFINITY;
     for mv in moves {
         let child = board.make_move(mv);
-        let score = -negamax(&child, depth - 1, ply + 1, -beta, -alpha);
+        let score = -negamax_inner(clock, &child, depth - 1, ply + 1, -beta, -alpha);
+        if clock.stopped {
+            return 0;
+        }
         if score > best {
             best = score;
         }
@@ -105,13 +139,24 @@ pub fn negamax(board: &Board, depth: u32, ply: u32, mut alpha: i32, beta: i32) -
     best
 }
 
-/// One root search iteration at a fixed depth: returns the best move and
-/// its score, or `None` if there are no legal moves (checkmate/stalemate).
-fn search_root(board: &Board, depth: u32) -> Option<(lutra_movegen::Move, i32)> {
+/// Outcome of one root iteration.
+enum RootOutcome {
+    /// Every root move was searched to the requested depth.
+    Complete(lutra_movegen::Move, i32),
+    /// The deadline hit mid-iteration. Carries the best move among the root
+    /// moves fully searched before the stop (or the first legal move if
+    /// none were), so a move is always available.
+    Interrupted(lutra_movegen::Move),
+    /// No legal moves (checkmate or stalemate).
+    NoMoves,
+}
+
+/// One root search iteration at a fixed depth.
+fn search_root(clock: &mut SearchClock, board: &Board, depth: u32) -> RootOutcome {
     let color = board.side_to_move();
     let moves = generate_legal_moves(board, color);
     if moves.is_empty() {
-        return None;
+        return RootOutcome::NoMoves;
     }
 
     let mut best_move = moves[0];
@@ -121,7 +166,10 @@ fn search_root(board: &Board, depth: u32) -> Option<(lutra_movegen::Move, i32)> 
 
     for mv in moves {
         let child = board.make_move(mv);
-        let score = -negamax(&child, depth.saturating_sub(1), 1, -beta, -alpha);
+        let score = -negamax_inner(clock, &child, depth.saturating_sub(1), 1, -beta, -alpha);
+        if clock.stopped {
+            return RootOutcome::Interrupted(best_move);
+        }
         if score > best_score {
             best_score = score;
             best_move = mv;
@@ -131,13 +179,16 @@ fn search_root(board: &Board, depth: u32) -> Option<(lutra_movegen::Move, i32)> 
         }
     }
 
-    Some((best_move, best_score))
+    RootOutcome::Complete(best_move, best_score)
 }
 
 /// Searches `depth` plies and returns the best move found, if any legal
 /// move exists (returns `None` on checkmate or stalemate).
 pub fn search_best_move(board: &Board, depth: u32) -> Option<lutra_movegen::Move> {
-    search_root(board, depth).map(|(mv, _)| mv)
+    match search_root(&mut SearchClock::unbounded(), board, depth) {
+        RootOutcome::Complete(mv, _) | RootOutcome::Interrupted(mv) => Some(mv),
+        RootOutcome::NoMoves => None,
+    }
 }
 
 /// Result of one completed iterative-deepening pass.
@@ -149,11 +200,11 @@ pub struct SearchResult {
 }
 
 /// Stopping conditions for iterative deepening: a hard depth cap, and an
-/// optional wall-clock budget checked between iterations.
+/// optional wall-clock budget enforced throughout the search.
 #[derive(Debug, Clone, Copy)]
 pub struct SearchLimits {
     pub max_depth: u32,
-    pub move_time: Option<std::time::Duration>,
+    pub move_time: Option<Duration>,
 }
 
 impl SearchLimits {
@@ -164,7 +215,7 @@ impl SearchLimits {
         }
     }
 
-    pub fn time(move_time: std::time::Duration, max_depth: u32) -> Self {
+    pub fn time(move_time: Duration, max_depth: u32) -> Self {
         SearchLimits {
             max_depth,
             move_time: Some(move_time),
@@ -176,34 +227,99 @@ impl SearchLimits {
 /// mate, at which point deepening further cannot improve the result.
 const MATE_THRESHOLD: i32 = MATE_VALUE - 1000;
 
+/// Absolute wall-clock ceiling for any single `iterative_deepening` call,
+/// applied on top of `limits.move_time` and also to depth-only searches,
+/// which otherwise have no time bound at all. Defense-in-depth against a
+/// GUI declaring the engine unresponsive.
+pub const ABSOLUTE_MAX_SEARCH_TIME: Duration = Duration::from_secs(5);
+
+/// The deadline is checked once every `CLOCK_CHECK_INTERVAL` nodes; a power
+/// of two so the check is a cheap mask. Small enough that even a slow node
+/// rate overshoots the deadline by well under a millisecond.
+const CLOCK_CHECK_INTERVAL: u64 = 256;
+
+/// Tracks the search deadline. Once `stopped` is set, every search function
+/// unwinds immediately and the in-progress iteration's scores are garbage
+/// that must be discarded.
+struct SearchClock {
+    deadline: Option<Instant>,
+    nodes: u64,
+    stopped: bool,
+}
+
+impl SearchClock {
+    fn unbounded() -> Self {
+        SearchClock {
+            deadline: None,
+            nodes: 0,
+            stopped: false,
+        }
+    }
+
+    fn with_deadline(deadline: Instant) -> Self {
+        SearchClock {
+            deadline: Some(deadline),
+            nodes: 0,
+            stopped: false,
+        }
+    }
+
+    fn should_stop(&mut self) -> bool {
+        if self.stopped {
+            return true;
+        }
+        self.nodes += 1;
+        if self.nodes & (CLOCK_CHECK_INTERVAL - 1) == 0
+            && let Some(deadline) = self.deadline
+            && Instant::now() >= deadline
+        {
+            self.stopped = true;
+        }
+        self.stopped
+    }
+}
+
 /// Searches with increasing depth (1, 2, 3, ...) up to `limits.max_depth`,
 /// stopping early if the time budget is exceeded or a forced mate is found.
-/// Returns the result of the last fully completed iteration.
+/// The deadline is enforced inside each iteration, not just between them,
+/// and is capped at `ABSOLUTE_MAX_SEARCH_TIME`. Returns the result of the
+/// last fully completed iteration; if even depth 1 was interrupted, returns
+/// the best move found so far in it (at worst the first legal move).
 pub fn iterative_deepening(board: &Board, limits: SearchLimits) -> Option<SearchResult> {
-    let start = std::time::Instant::now();
+    let start = Instant::now();
+    let budget = limits
+        .move_time
+        .map_or(ABSOLUTE_MAX_SEARCH_TIME, |t| t.min(ABSOLUTE_MAX_SEARCH_TIME));
+    let mut clock = SearchClock::with_deadline(start + budget);
     let mut best: Option<SearchResult> = None;
 
     for depth in 1..=limits.max_depth {
-        // Always complete at least the first iteration: an engine must
-        // return some legal move if one exists, even under extreme time
-        // pressure, so the time check only applies from depth 2 onward.
-        if depth > 1
-            && let Some(move_time) = limits.move_time
-            && start.elapsed() >= move_time
-        {
+        if depth > 1 && start.elapsed() >= budget {
             break;
         }
 
-        let (best_move, score) = search_root(board, depth)?;
-
-        best = Some(SearchResult {
-            best_move,
-            score,
-            depth,
-        });
-
-        if score.abs() >= MATE_THRESHOLD {
-            break;
+        match search_root(&mut clock, board, depth) {
+            RootOutcome::NoMoves => return None,
+            RootOutcome::Interrupted(best_move) => {
+                if best.is_none() {
+                    best = Some(SearchResult {
+                        best_move,
+                        score: 0,
+                        depth: 0,
+                    });
+                }
+                break;
+            }
+            RootOutcome::Complete(best_move, score) => {
+                best = Some(SearchResult {
+                    best_move,
+                    score,
+                    depth,
+                });
+                if score.abs() >= MATE_THRESHOLD {
+                    break;
+                }
+            }
         }
     }
 

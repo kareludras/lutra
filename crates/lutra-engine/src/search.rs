@@ -89,7 +89,14 @@ fn quiescence_inner(
 /// Negamax search with alpha-beta pruning. Returns a score from the
 /// perspective of the side to move at `board` (positive is good for them).
 pub fn negamax(board: &Board, depth: u32, ply: u32, alpha: i32, beta: i32) -> i32 {
-    negamax_inner(&mut SearchClock::unbounded(), board, depth, ply, alpha, beta)
+    negamax_inner(
+        &mut SearchClock::unbounded(),
+        board,
+        depth,
+        ply,
+        alpha,
+        beta,
+    )
 }
 
 fn negamax_inner(
@@ -287,9 +294,9 @@ impl SearchClock {
 /// the best move found so far in it (at worst the first legal move).
 pub fn iterative_deepening(board: &Board, limits: SearchLimits) -> Option<SearchResult> {
     let start = Instant::now();
-    let budget = limits
-        .move_time
-        .map_or(ABSOLUTE_MAX_SEARCH_TIME, |t| t.min(ABSOLUTE_MAX_SEARCH_TIME));
+    let budget = limits.move_time.map_or(ABSOLUTE_MAX_SEARCH_TIME, |t| {
+        t.min(ABSOLUTE_MAX_SEARCH_TIME)
+    });
     let mut clock = SearchClock::with_deadline(start + budget);
     let mut best: Option<SearchResult> = None;
 

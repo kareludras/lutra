@@ -1,4 +1,4 @@
-use lutra_engine::{SearchLimits, iterative_deepening};
+use lutra_engine::{SearchLimits, iterative_deepening_with_history};
 use lutra_movegen::{Board, Color, generate_legal_moves};
 use std::io::{BufRead, Write};
 use std::time::Duration;
@@ -32,6 +32,9 @@ fn compute_move_time(time_left_ms: u64, _increment_ms: u64) -> Duration {
 
 pub struct UciEngine {
     board: Board,
+    /// `Board::hash` of every position before `board` in the current game,
+    /// oldest first, so the search can recognise repetitions.
+    history: Vec<u64>,
 }
 
 impl Default for UciEngine {
@@ -44,6 +47,7 @@ impl UciEngine {
     pub fn new() -> Self {
         UciEngine {
             board: Board::starting_position(),
+            history: Vec::new(),
         }
     }
 
@@ -67,6 +71,7 @@ impl UciEngine {
             }
             Some("ucinewgame") => {
                 self.board = Board::starting_position();
+                self.history.clear();
             }
             Some("position") => {
                 self.handle_position(parts);
@@ -83,6 +88,7 @@ impl UciEngine {
     }
 
     fn handle_position<'a>(&mut self, mut parts: impl Iterator<Item = &'a str>) {
+        self.history.clear();
         match parts.next() {
             Some("startpos") => {
                 self.board = Board::starting_position();
@@ -109,6 +115,7 @@ impl UciEngine {
             let color = self.board.side_to_move();
             let legal = generate_legal_moves(&self.board, color);
             if let Some(mv) = legal.into_iter().find(|m| m.to_string() == token) {
+                self.history.push(self.board.hash());
                 self.board = self.board.make_move(mv);
             }
             // Malformed or illegal move tokens are silently ignored rather
@@ -150,7 +157,7 @@ impl UciEngine {
             SearchLimits::depth(DEFAULT_DEPTH)
         };
 
-        match iterative_deepening(&self.board, limits) {
+        match iterative_deepening_with_history(&self.board, &self.history, limits) {
             Some(result) => writeln!(out, "bestmove {}", result.best_move).ok(),
             None => writeln!(out, "bestmove 0000").ok(),
         };

@@ -12,6 +12,7 @@ pub mod perft;
 pub mod piece;
 pub mod sliding;
 pub mod square;
+pub mod zobrist;
 
 pub use attack_info::{is_in_check, is_square_attacked};
 pub use bitboard::Bitboard;

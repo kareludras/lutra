@@ -229,3 +229,16 @@ fn go_uses_black_clock_when_black_is_to_move() {
         "elapsed: {elapsed:?}"
     );
 }
+
+#[test]
+fn uci_advertises_and_accepts_the_hash_option() {
+    let mut engine = UciEngine::new();
+    let output = run_command(&mut engine, "uci");
+    assert!(output.contains("option name Hash type spin"));
+
+    run_command(&mut engine, "setoption name Hash value 4");
+    run_command(&mut engine, "setoption name Hash value not-a-number");
+    run_command(&mut engine, "setoption name Unknown value 1");
+    let output = run_command(&mut engine, "go depth 3");
+    assert!(output.contains("bestmove"));
+}

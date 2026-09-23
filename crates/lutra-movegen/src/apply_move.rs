@@ -56,6 +56,18 @@ impl Board {
 
         board
     }
+
+    /// Passes the turn without moving ("null move"), for null-move pruning
+    /// in search. Never legal in a real game, and meaningless while in
+    /// check. Clears en passant and resets the halfmove clock, so
+    /// repetition detection never matches positions across the null move.
+    pub fn make_null_move(&self) -> Board {
+        let mut board = self.clone();
+        board.set_side_to_move(self.side_to_move().opposite());
+        board.set_en_passant(None);
+        board.set_halfmove_clock(0);
+        board
+    }
 }
 
 /// Squares kingside/queenside rooks move to when castling, keyed by the

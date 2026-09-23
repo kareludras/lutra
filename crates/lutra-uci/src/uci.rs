@@ -1,4 +1,4 @@
-use lutra_engine::{SearchLimits, iterative_deepening_with_history};
+use lutra_engine::{DEFAULT_HASH_MB, Engine, SearchLimits};
 use lutra_movegen::{Board, Color, generate_legal_moves};
 use std::io::{BufRead, Write};
 use std::time::Duration;
@@ -35,6 +35,8 @@ pub struct UciEngine {
     /// `Board::hash` of every position before `board` in the current game,
     /// oldest first, so the search can recognise repetitions.
     history: Vec<u64>,
+    /// Persists across moves so the transposition table carries over.
+    engine: Engine,
 }
 
 impl Default for UciEngine {
@@ -48,6 +50,7 @@ impl UciEngine {
         UciEngine {
             board: Board::starting_position(),
             history: Vec::new(),
+            engine: Engine::default(),
         }
     }
 
@@ -64,6 +67,11 @@ impl UciEngine {
             Some("uci") => {
                 writeln!(out, "id name Lutra 0.1").ok();
                 writeln!(out, "id author Karel").ok();
+                writeln!(
+                    out,
+                    "option name Hash type spin default {DEFAULT_HASH_MB} min 1 max 1024"
+                )
+                .ok();
                 writeln!(out, "uciok").ok();
             }
             Some("isready") => {
@@ -72,6 +80,10 @@ impl UciEngine {
             Some("ucinewgame") => {
                 self.board = Board::starting_position();
                 self.history.clear();
+                self.engine.new_game();
+            }
+            Some("setoption") => {
+                self.handle_setoption(parts);
             }
             Some("position") => {
                 self.handle_position(parts);
@@ -85,6 +97,23 @@ impl UciEngine {
             _ => {}
         }
         true
+    }
+
+    /// `setoption name <name> value <value>`. Only `Hash` (MB) is
+    /// supported; anything else is ignored.
+    fn handle_setoption<'a>(&mut self, parts: impl Iterator<Item = &'a str>) {
+        let tokens: Vec<&str> = parts.collect();
+        let name_end = tokens.iter().position(|&t| t == "value");
+        let name = tokens
+            .get(1..name_end.unwrap_or(tokens.len()))
+            .map(|n| n.join(" "))
+            .unwrap_or_default();
+        let value = name_end.and_then(|i| tokens.get(i + 1));
+        if name.eq_ignore_ascii_case("hash")
+            && let Some(mb) = value.and_then(|v| v.parse::<usize>().ok())
+        {
+            self.engine.set_hash_mb(mb.clamp(1, 1024));
+        }
     }
 
     fn handle_position<'a>(&mut self, mut parts: impl Iterator<Item = &'a str>) {
@@ -157,7 +186,7 @@ impl UciEngine {
             SearchLimits::depth(DEFAULT_DEPTH)
         };
 
-        match iterative_deepening_with_history(&self.board, &self.history, limits) {
+        match self.engine.search(&self.board, &self.history, limits) {
             Some(result) => writeln!(out, "bestmove {}", result.best_move).ok(),
             None => writeln!(out, "bestmove 0000").ok(),
         };

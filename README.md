@@ -19,5 +19,5 @@ A UCI chess engine written in Rust.
 - [x] Minimal UCI protocol support
 - [ ] Benchmarking harness (fastchess/SPRT)
 - [ ] Classical evaluation
-- [ ] Advanced search heuristics
+- [x] Advanced search heuristics (TT, move ordering, PVS, null move, LMR)
 - [ ] Automated Elo testing

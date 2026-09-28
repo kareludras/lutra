@@ -4,6 +4,8 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+lutra-engine = { path = "../lutra-engine" }
+lutra-movegen = { path = "../lutra-movegen" }
 lutra-uci = { path = "../lutra-uci" }
 
 [[bin]]

@@ -6,6 +6,15 @@ fn run_command(engine: &mut UciEngine, cmd: &str) -> String {
     String::from_utf8(out).unwrap()
 }
 
+/// The `bestmove ...` line of a `go` response (which may be preceded by
+/// `info` lines).
+fn bestmove_line(output: &str) -> &str {
+    output
+        .lines()
+        .find(|l| l.starts_with("bestmove "))
+        .unwrap_or_else(|| panic!("no bestmove in {output:?}"))
+}
+
 #[test]
 fn uci_command_responds_with_id_and_uciok() {
     let mut engine = UciEngine::new();
@@ -115,8 +124,8 @@ fn go_depth_returns_a_legal_bestmove() {
     engine.handle_command("position startpos", &mut out);
     let output = run_command(&mut engine, "go depth 2");
 
-    assert!(output.starts_with("bestmove "));
-    let token = output.trim().strip_prefix("bestmove ").unwrap();
+    assert!(bestmove_line(&output).starts_with("bestmove "));
+    let token = bestmove_line(&output).strip_prefix("bestmove ").unwrap();
     let legal = lutra_movegen::generate_legal_moves(engine.board(), lutra_movegen::Color::White);
     assert!(legal.iter().any(|m| m.to_string() == token));
 }
@@ -128,7 +137,7 @@ fn go_movetime_returns_a_legal_bestmove() {
     engine.handle_command("position startpos", &mut out);
     let output = run_command(&mut engine, "go movetime 50");
 
-    assert!(output.starts_with("bestmove "));
+    assert!(bestmove_line(&output).starts_with("bestmove "));
 }
 
 #[test]
@@ -137,7 +146,7 @@ fn go_with_no_arguments_uses_a_default_depth() {
     let mut out = Vec::new();
     engine.handle_command("position startpos", &mut out);
     let output = run_command(&mut engine, "go");
-    assert!(output.starts_with("bestmove "));
+    assert!(bestmove_line(&output).starts_with("bestmove "));
 }
 
 #[test]
@@ -185,7 +194,7 @@ fn go_with_wtime_btime_returns_promptly_under_a_short_time_control() {
     let output = run_command(&mut engine, "go wtime 10000 btime 10000 winc 100 binc 100");
     let elapsed = start.elapsed();
 
-    assert!(output.starts_with("bestmove "));
+    assert!(bestmove_line(&output).starts_with("bestmove "));
     // Generous tolerance to absorb debug-mode overhead; still catches the
     // kind of multi-second-scale overshoot the original bug produced.
     assert!(
@@ -204,7 +213,7 @@ fn go_with_very_low_remaining_time_still_returns_a_move_quickly() {
     let output = run_command(&mut engine, "go wtime 200 btime 200 winc 0 binc 0");
     let elapsed = start.elapsed();
 
-    assert!(output.starts_with("bestmove "));
+    assert!(bestmove_line(&output).starts_with("bestmove "));
     assert!(
         elapsed < std::time::Duration::from_secs(8),
         "elapsed: {elapsed:?}"
@@ -223,7 +232,7 @@ fn go_uses_black_clock_when_black_is_to_move() {
     let output = run_command(&mut engine, "go wtime 999999999 btime 300 winc 0 binc 0");
     let elapsed = start.elapsed();
 
-    assert!(output.starts_with("bestmove "));
+    assert!(bestmove_line(&output).starts_with("bestmove "));
     assert!(
         elapsed < std::time::Duration::from_secs(8),
         "elapsed: {elapsed:?}"
@@ -241,4 +250,40 @@ fn uci_advertises_and_accepts_the_hash_option() {
     run_command(&mut engine, "setoption name Unknown value 1");
     let output = run_command(&mut engine, "go depth 3");
     assert!(output.contains("bestmove"));
+}
+
+#[test]
+fn go_reports_an_info_line_before_bestmove() {
+    let mut engine = UciEngine::new();
+    run_command(&mut engine, "position startpos");
+    let output = run_command(&mut engine, "go depth 3");
+    let info = output
+        .lines()
+        .find(|l| l.starts_with("info "))
+        .expect("an info line");
+    assert!(info.contains("depth 3"));
+    assert!(info.contains("score cp "));
+    assert!(info.contains(" nodes "));
+    assert!(output.find("info ").unwrap() < output.find("bestmove").unwrap());
+}
+
+#[test]
+fn go_reports_mate_scores_in_moves() {
+    let mut engine = UciEngine::new();
+    run_command(
+        &mut engine,
+        "position fen kbK5/pp6/1P6/8/8/8/8/R7 w - - 0 1",
+    );
+    let output = run_command(&mut engine, "go depth 6");
+    assert!(output.contains("score mate 2"), "{output}");
+}
+
+#[test]
+fn bench_command_prints_nodes_and_nps() {
+    let mut engine = UciEngine::new();
+    let output = run_command(&mut engine, "bench 2");
+    assert!(
+        output.contains(" nodes ") && output.contains(" nps"),
+        "{output}"
+    );
 }

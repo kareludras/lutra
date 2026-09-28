@@ -1,7 +1,11 @@
-use lutra_engine::{DEFAULT_HASH_MB, Engine, SearchLimits};
+use lutra_engine::{
+    BENCH_DEPTH, DEFAULT_HASH_MB, Engine, MATE_THRESHOLD, MATE_VALUE, SearchLimits, SearchResult,
+    bench,
+};
 use lutra_movegen::{Board, Color, generate_legal_moves};
 use std::io::{BufRead, Write};
 use std::time::Duration;
+use std::time::Instant;
 
 /// Depth used for `go` with no depth, movetime, or clock info specified.
 const DEFAULT_DEPTH: u32 = 6;
@@ -90,6 +94,14 @@ impl UciEngine {
             }
             Some("go") => {
                 self.handle_go(parts, out);
+            }
+            Some("bench") => {
+                let depth = parts
+                    .next()
+                    .and_then(|d| d.parse().ok())
+                    .unwrap_or(BENCH_DEPTH);
+                let result = bench(depth);
+                writeln!(out, "{} nodes {} nps", result.nodes, result.nps()).ok();
             }
             Some("quit") => {
                 return false;
@@ -186,11 +198,36 @@ impl UciEngine {
             SearchLimits::depth(DEFAULT_DEPTH)
         };
 
+        let start = Instant::now();
         match self.engine.search(&self.board, &self.history, limits) {
-            Some(result) => writeln!(out, "bestmove {}", result.best_move).ok(),
+            Some(result) => {
+                writeln!(out, "{}", info_line(&result, start.elapsed().as_millis())).ok();
+                writeln!(out, "bestmove {}", result.best_move).ok()
+            }
             None => writeln!(out, "bestmove 0000").ok(),
         };
     }
+}
+
+/// UCI `info` summary of a finished search, e.g.
+/// `info depth 7 score cp 35 nodes 120000 time 210 nps 571428 pv e2e4`.
+/// Mate scores are reported in moves, as `score mate N` (negative when
+/// the engine is being mated).
+fn info_line(result: &SearchResult, time_ms: u128) -> String {
+    let score = if result.score.abs() >= MATE_THRESHOLD {
+        let plies = MATE_VALUE - result.score.abs();
+        let moves = (plies + 1) / 2;
+        format!("mate {}", if result.score > 0 { moves } else { -moves })
+    } else {
+        format!("cp {}", result.score)
+    };
+    let nps = (result.nodes as u128 * 1000)
+        .checked_div(time_ms)
+        .unwrap_or(0);
+    format!(
+        "info depth {} score {score} nodes {} time {time_ms} nps {nps} pv {}",
+        result.depth, result.nodes, result.best_move
+    )
 }
 
 /// Runs the UCI loop: reads commands from `input` line by line, writes

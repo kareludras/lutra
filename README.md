@@ -22,6 +22,26 @@ A UCI chess engine written in Rust.
 - [x] Advanced search heuristics (TT, move ordering, PVS, null move, LMR)
 - [x] Automated Elo testing (GitHub Actions)
 
+## Rating
+
+About 1810 CCRL Blitz (95% CI 1770-1854), measured at commit 1485478.
+
+400 game gauntlet against Stash versions with known CCRL Blitz ratings,
+100 games per opponent, each opening played with both colors.
+
+| Opponent     | CCRL | W-D-L    | Score |
+|--------------|------|----------|-------|
+| Stash 9.0.1  | 1271 | 88-10-2  | 93.0% |
+| Stash 11.0.1 | 1687 | 52-8-40  | 56.0% |
+| Stash 12.0   | 1883 | 35-7-58  | 38.5% |
+| Stash 14.0   | 2059 | 30-10-60 | 35.0% |
+
+fastchess 1.8.2, 10+0.1, 1 thread, 16 MB hash, openings from
+`scripts/books/lutra-8ply.epd`. Stash was built from the upstream tags.
+The rating is a maximum likelihood fit over all games with the opponent
+ratings held fixed. CCRL plays 2'+1" on different hardware, so the number
+is approximate.
+
 ## Testing strength
 
 Requires [fastchess](https://github.com/Disservin/fastchess/releases) and

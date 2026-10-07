@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -18,7 +21,7 @@ jobs:
             asset_name: lutra-windows-x86_64.exe
           - os: macos-latest
             artifact_name: lutra
-            asset_name: lutra-macos-x86_64
+            asset_name: lutra-macos-arm64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -41,3 +44,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset_name }}
+          generate_release_notes: true

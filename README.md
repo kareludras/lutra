@@ -2,6 +2,37 @@
 
 A UCI chess engine written in Rust.
 
+## Download and use
+
+Binaries for each release are on the
+[releases page](https://github.com/kareludras/lutra/releases):
+
+| File                       | Platform              |
+|----------------------------|-----------------------|
+| `lutra-windows-x86_64.exe` | Windows, 64-bit       |
+| `lutra-linux-x86_64`       | Linux, x86-64         |
+| `lutra-macos-arm64`        | macOS, Apple Silicon  |
+
+Lutra is a UCI engine with no board of its own. Load it into a chess GUI
+such as [Cute Chess](https://cutechess.com), [Arena](http://www.playwitharena.de),
+[BanksiaGUI](https://banksiagui.com) or [En Croissant](https://encroissant.org)
+and add it as a new UCI engine.
+
+Before the first run:
+
+- Windows: SmartScreen may warn about an unknown publisher. Choose
+  More info, then Run anyway.
+- Linux: `chmod +x lutra-linux-x86_64`
+- macOS: `chmod +x lutra-macos-arm64 && xattr -d com.apple.quarantine lutra-macos-arm64`
+
+Options: `Hash` (MB, default 16). Running `lutra bench` from a terminal
+prints a node count and speed, which is a quick check that the binary
+works.
+
+Intel Macs and other platforms can build from source with
+`cargo build --release` (Rust 1.88 or newer); the binary is
+`target/release/lutra`.
+
 ## Progress
 
 - [x] Board types (Square, Piece, Color, Bitboard)

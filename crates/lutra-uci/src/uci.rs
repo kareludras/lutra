@@ -69,7 +69,7 @@ impl UciEngine {
         let mut parts = line.split_whitespace();
         match parts.next() {
             Some("uci") => {
-                writeln!(out, "id name Lutra 0.1").ok();
+                writeln!(out, "id name Lutra {}", env!("CARGO_PKG_VERSION")).ok();
                 writeln!(out, "id author Karel").ok();
                 writeln!(
                     out,

@@ -20,7 +20,8 @@ A UCI chess engine written in Rust.
 - [x] Benchmarking harness (fastchess/SPRT)
 - [x] Classical evaluation (tapered PeSTO tables, pawn structure, mobility)
 - [x] Advanced search heuristics (TT, move ordering, PVS, null move, LMR)
-- [ ] Automated Elo testing
+- [x] Automated Elo testing (GitHub Actions)
+
 ## Testing strength
 
 Requires [fastchess](https://github.com/Disservin/fastchess/releases) and
@@ -48,3 +49,15 @@ standard book instead.
 `lutra bench` searches a fixed set of positions to a fixed depth and prints
 the total node count, which is deterministic: a change meant only to speed
 up the engine must leave it unchanged.
+
+### In CI
+
+The `Elo` workflow (`.github/workflows/elo.yml`) runs on every pull request
+that touches the engine: it plays the PR against `main` for 400 games at
+4+0.04 and puts the Elo estimate, W/L/D and both bench counts in the job
+summary. The check fails only on a clear regression, when even the
+optimistic end of the 95% confidence interval scores below 50%; smaller
+differences are reported, not enforced. Games are uploaded as an artifact.
+
+Run it by hand from the Actions tab to test any two refs, play more games,
+or run a full SPRT (`mode: sprt`) until fastchess accepts H0 or H1.

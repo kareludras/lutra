@@ -1,0 +1,101 @@
+name: Elo
+
+# Plays the pull request (or a chosen ref) against main with fastchess and
+# reports the Elo difference in the job summary. A pull request fails this
+# check only on a clear regression: the whole 95% confidence interval of its
+# score below 50%. Run manually from the Actions tab for an SPRT or a
+# longer match.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+    inputs:
+      dev:
+        description: "Ref to test"
+        default: "HEAD"
+      base:
+        description: "Ref to compare against"
+        default: "origin/main"
+      mode:
+        description: "'games' for a fixed-length match, 'sprt' to run until H0/H1 is accepted"
+        type: choice
+        options: [games, sprt]
+        default: games
+      games:
+        description: "Games to play (mode 'games'), or the cap (mode 'sprt')"
+        default: "400"
+      tc:
+        description: "Time control"
+        default: "4+0.04"
+      elo1:
+        description: "SPRT upper bound in Elo (mode 'sprt'; lower bound is 0)"
+        default: "5"
+
+concurrency:
+  group: elo-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FASTCHESS_VERSION: v1.8.2-alpha
+
+jobs:
+  elo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # sprt.py builds the base ref from git history.
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            . -> target/sprt/cargo-target
+
+      - name: Install fastchess
+        run: |
+          mkdir -p "$RUNNER_TEMP/fastchess"
+          cd "$RUNNER_TEMP/fastchess"
+          curl -fsSL -o fastchess.tar \
+            "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"
+          tar -xf fastchess.tar
+          bin=$(find . -type f -name fastchess | head -n 1)
+          chmod +x "$bin"
+          echo "FASTCHESS=$PWD/$bin" >> "$GITHUB_ENV"
+
+      - name: Play match
+        env:
+          DEV: ${{ inputs.dev || 'HEAD' }}
+          BASE: ${{ inputs.base || 'origin/main' }}
+          MODE: ${{ inputs.mode || 'games' }}
+          GAMES: ${{ inputs.games || '400' }}
+          TC: ${{ inputs.tc || '4+0.04' }}
+          ELO1: ${{ inputs.elo1 || '5' }}
+        run: |
+          args=(--dev "$DEV" --base "$BASE" --tc "$TC" --concurrency "$(nproc)"
+                --summary "$GITHUB_STEP_SUMMARY")
+          if [ "$MODE" = sprt ]; then
+            args+=(--max-games "$GAMES" --elo1 "$ELO1")
+          else
+            args+=(--games "$GAMES" --fail-on-regression)
+          fi
+          python3 scripts/sprt.py "${args[@]}"
+
+      - name: Upload games
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elo-games
+          path: target/sprt/runs/
+          if-no-files-found: ignore

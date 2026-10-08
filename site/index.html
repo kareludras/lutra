@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lutra, a UCI chess engine in Rust</title>
+<meta name="description" content="Lutra is a UCI chess engine written in Rust. About 1810 CCRL Blitz.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="./"><img src="favicon.svg" alt="" width="22" height="22">Lutra</a>
+  <nav>
+    <a href="#download">Download</a>
+    <a href="#strength">Strength</a>
+    <a href="#use">Setup</a>
+    <a class="gh" href="https://github.com/kareludras/lutra">GitHub</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="hero-text">
+    <h1>Lutra</h1>
+    <p class="lead">A UCI chess engine written in Rust. Bitboard move generation,
+      alpha-beta search with modern pruning, and a tapered classical evaluation.</p>
+    <div class="cta">
+      <a class="btn primary" id="primary-download" href="https://github.com/kareludras/lutra/releases/latest">Download</a>
+      <a class="btn" href="https://github.com/kareludras/lutra">View source</a>
+    </div>
+    <dl class="facts">
+      <div><dt>~1810</dt><dd>CCRL Blitz</dd></div>
+      <div><dt>UCI</dt><dd>works in any chess GUI</dd></div>
+      <div><dt>0</dt><dd>external dependencies</dd></div>
+    </dl>
+  </div>
+  <div class="board" aria-label="Chess position" role="img" id="board"></div>
+</section>
+
+<section id="download">
+  <h2>Download</h2>
+  <p>Prebuilt binaries for the latest release. Older versions are on the
+    <a href="https://github.com/kareludras/lutra/releases">releases page</a>.</p>
+  <div class="downloads">
+    <a class="dl" data-os="windows" href="https://github.com/kareludras/lutra/releases/latest/download/lutra-windows-x86_64.exe">
+      <strong>Windows</strong><span>x86-64</span><code>lutra-windows-x86_64.exe</code></a>
+    <a class="dl" data-os="linux" href="https://github.com/kareludras/lutra/releases/latest/download/lutra-linux-x86_64">
+      <strong>Linux</strong><span>x86-64</span><code>lutra-linux-x86_64</code></a>
+    <a class="dl" data-os="mac" href="https://github.com/kareludras/lutra/releases/latest/download/lutra-macos-arm64">
+      <strong>macOS</strong><span>Apple Silicon</span><code>lutra-macos-arm64</code></a>
+  </div>
+  <p class="note">Other platforms: <code>cargo build --release</code> with Rust 1.88 or newer.</p>
+</section>
+
+<section id="strength">
+  <h2>Strength</h2>
+  <p>About <strong>1810 CCRL Blitz</strong> (95% CI 1770-1854), from a 400 game
+    gauntlet against Stash versions with known CCRL ratings.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Opponent</th><th>CCRL</th><th>W-D-L</th><th>Score</th></tr></thead>
+      <tbody>
+        <tr><td>Stash 9.0.1</td><td>1271</td><td>88-10-2</td><td>93.0%</td></tr>
+        <tr><td>Stash 11.0.1</td><td>1687</td><td>52-8-40</td><td>56.0%</td></tr>
+        <tr><td>Stash 12.0</td><td>1883</td><td>35-7-58</td><td>38.5%</td></tr>
+        <tr><td>Stash 14.0</td><td>2059</td><td>30-10-60</td><td>35.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">10+0.1, 1 thread, 16 MB hash, fastchess. Maximum likelihood fit
+    with the opponent ratings held fixed. Approximate: CCRL plays 2'+1" on different hardware.</p>
+</section>
+
+<section id="use">
+  <h2>Setup</h2>
+  <ol class="steps">
+    <li>
+      <h3>Download the binary</h3>
+      <p>Pick the file for your system above.</p>
+    </li>
+    <li>
+      <h3>Allow it to run</h3>
+      <p>Windows: if SmartScreen warns, choose <em>More info</em>, then <em>Run anyway</em>.</p>
+      <p>Linux: <code>chmod +x lutra-linux-x86_64</code></p>
+      <p>macOS: <code>chmod +x lutra-macos-arm64 &amp;&amp; xattr -d com.apple.quarantine lutra-macos-arm64</code></p>
+    </li>
+    <li>
+      <h3>Add it to a chess GUI</h3>
+      <p>Lutra has no board of its own. Add it as a UCI engine in
+        <a href="https://cutechess.com">Cute Chess</a>,
+        <a href="http://www.playwitharena.de">Arena</a>,
+        <a href="https://banksiagui.com">BanksiaGUI</a> or
+        <a href="https://encroissant.org">En Croissant</a>.</p>
+    </li>
+  </ol>
+  <p class="note">Option: <code>Hash</code> in MB, default 16. Run <code>lutra bench</code>
+    in a terminal for a quick self-test.</p>
+</section>
+
+<section id="inside">
+  <h2>Inside</h2>
+  <ul class="features">
+    <li><h3>Move generation</h3><p>Bitboards, legal moves, perft-validated against standard positions.</p></li>
+    <li><h3>Search</h3><p>Iterative deepening, PVS, transposition table, null move pruning, late move reductions, quiescence.</p></li>
+    <li><h3>Evaluation</h3><p>Tapered PeSTO tables, pawn structure, bishop pair, rook files, mobility.</p></li>
+    <li><h3>Testing</h3><p>SPRT harness on fastchess and an Elo check on every pull request.</p></li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <a href="https://github.com/kareludras/lutra">github.com/kareludras/lutra</a>
+</footer>
+
+<script>
+  // Highlight the download for the visitor's OS.
+  (function () {
+    var ua = navigator.userAgent;
+    var os = /Windows/.test(ua) ? "windows" : /Mac/.test(ua) ? "mac" : /Linux|X11/.test(ua) ? "linux" : null;
+    if (!os) return;
+    var link = document.querySelector('.dl[data-os="' + os + '"]');
+    if (!link) return;
+    link.classList.add("recommended");
+    var primary = document.getElementById("primary-download");
+    primary.href = link.href;
+    primary.textContent = "Download for " + link.querySelector("strong").textContent;
+  })();
+
+  // Decorative board drawn from a FEN string.
+  (function () {
+    var fen = "r1bq1rk1/pp2bppp/2n1pn2/3p4/2PP4/2N1PN2/P3BPPP/R1BQ1RK1";
+    var glyphs = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+    var board = document.getElementById("board");
+    fen.split("/").forEach(function (rank, r) {
+      var f = 0;
+      for (var i = 0; i < rank.length; i++) {
+        var c = rank[i];
+        if (/\d/.test(c)) {
+          for (var k = 0; k < +c; k++) square(r, f++, null);
+        } else {
+          square(r, f++, c);
+        }
+      }
+    });
+    function square(r, f, piece) {
+      var sq = document.createElement("span");
+      sq.className = (r + f) % 2 ? "sq dark" : "sq light";
+      if (piece) {
+        var p = document.createElement("span");
+        p.className = piece === piece.toUpperCase() ? "pc white" : "pc black";
+        // U+FE0E asks for the text glyph, not the emoji (mobile renders the pawn as emoji).
+        p.textContent = glyphs[piece.toLowerCase()] + "︎";
+        sq.appendChild(p);
+      }
+      board.appendChild(sq);
+    }
+  })();
+</script>
+</body>
+</html>
